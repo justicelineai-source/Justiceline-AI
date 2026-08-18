@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import {
   X, Minus, Send, Copy, RefreshCw, Trash2, Scale, BookOpen, Gavel, FileText, ShieldCheck, CornerDownLeft,
 } from "lucide-react";
@@ -380,9 +381,21 @@ function AnswerCard({
                 <BookOpen className="h-2.5 w-2.5" /> General Legal Information
               </span>
             )}
-            {data.answer.split(/\n{2,}/).map((p, i) => (
-              <p key={i} className="text-[13px] leading-relaxed text-foreground/90">{p}</p>
-            ))}
+           <div className="prose prose-sm max-w-none text-[13px] leading-relaxed text-foreground/90
+  prose-headings:font-serif
+  prose-headings:text-foreground
+  prose-h2:mb-2 prose-h2:mt-1 prose-h2:text-base
+  prose-h3:mb-1 prose-h3:mt-3 prose-h3:text-sm
+  prose-p:my-2
+  prose-ul:my-2 prose-ol:my-2
+  prose-li:my-0.5
+  prose-strong:text-foreground
+  prose-a:text-primary
+">
+  <ReactMarkdown>
+    {data.answer}
+  </ReactMarkdown>
+</div>
           </div>
  
           <div className="space-y-3 border-t border-border/70 bg-secondary/25 p-3.5">

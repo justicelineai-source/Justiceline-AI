@@ -1,6 +1,5 @@
-import type { AssistantAnswer, AssistantSource, RelatedJudgment } from "./assistant-types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
- 
+
 type SearchRecord = {
   id: string | number;
   CaseNo?: string | null;
@@ -12,51 +11,128 @@ type SearchRecord = {
   Actreferred?: string | null;
   COURT?: string | null;
   Date?: string | null;
-  citation?: string | null;
 };
- 
-/**
- * Server-side search over JusticeLine Supabase tables. Returns matching judgment records.
- * If no meaningful matches are found, returns an empty array.
- */
-export async function searchJusticeLine(query: string): Promise<SearchRecord[]> {
+
+export async function searchJusticeLine(
+  query: string
+): Promise<SearchRecord[]> {
   const term = (query || "").trim();
-  if (!term) return [];
- 
-  // Build OR filters across common judgment fields.
-  const filters = [
-    `CaseNo.ilike.%${term}%`,
-    `Appellant.ilike.%${term}%`,
-    `Respondent.ilike.%${term}%`,
-    `Headnote.ilike.%${term}%`,
-    `HNote.ilike.%${term}%`,
-    `Judgement.ilike.%${term}%`,
-    `Actreferred.ilike.%${term}%`,
-    `COURT.ilike.%${term}%`,
-  ];
- 
+
+  if (!term) {
+    return [];
+  }
+
+  console.log("[AI] Supabase search started");
+  console.log("[AI] Original query:", term);
+
   try {
-    console.log("[AI] Supabase search started");
-    const { data, error } = await supabaseAdmin
-      .from("judgments")
-      .select("id, CaseNo, Appellant, Respondent, Headnote, HNote, Judgement, Actreferred, COURT, Date")
-      .or(filters.join(","))
-      .limit(6);
- 
-    if (error) {
-      console.error("searchJusticeLine supabase error:", error);
-      console.log("[AI] Supabase records found: 0");
+    const db = supabaseAdmin as any;
+
+    /*
+     * Extract useful legal search terms from the user's
+     * natural-language question.
+     */
+    const words = term
+      .replace(/[?.,;:()[\]{}"'`]/g, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter((word) => word.length >= 3)
+      .filter(
+        (word) =>
+          ![
+            "what",
+            "what's",
+            "what’s",
+            "explain",
+            "tell",
+            "about",
+            "give",
+            "please",
+            "does",
+            "does",
+            "under",
+            "with",
+            "from",
+            "this",
+            "that",
+            "which",
+            "when",
+            "where",
+            "how",
+            "the",
+            "and",
+            "for",
+            "are",
+            "was",
+            "can",
+            "could",
+            "would",
+          ].includes(word.toLowerCase())
+      );
+
+    console.log("[AI] Search keywords:", words);
+
+    if (words.length === 0) {
       return [];
     }
- 
-    console.log("[AI] Supabase records found:", (data ?? []).length);
- 
-    return (data ?? []) as SearchRecord[];
-  } catch (err) {
-    console.error("searchJusticeLine unexpected error:", err);
-    console.log("[AI] Supabase records found: 0");
+
+    /*
+     * Search each useful keyword independently.
+     *
+     * This is much better than searching the entire
+     * natural-language question as one exact phrase.
+     */
+    const resultsMap = new Map<string | number, SearchRecord>();
+
+    for (const word of words.slice(0, 6)) {
+      const filters = [
+        `CaseNo.ilike.%${word}%`,
+        `Appellant.ilike.%${word}%`,
+        `Respondent.ilike.%${word}%`,
+        `Headnote.ilike.%${word}%`,
+        `HNote.ilike.%${word}%`,
+        `Judgement.ilike.%${word}%`,
+        `Actreferred.ilike.%${word}%`,
+        `COURT.ilike.%${word}%`,
+      ];
+
+      const { data, error } = await db
+        .from("judgments")
+        .select(
+          "id, CaseNo, Appellant, Respondent, Headnote, HNote, Judgement, Actreferred, COURT, Date"
+        )
+        .or(filters.join(","))
+        .limit(6);
+
+      if (error) {
+        console.error(
+          `[AI] Supabase search error for "${word}":`,
+          error
+        );
+        continue;
+      }
+
+      for (const record of data ?? []) {
+        if (record?.id !== undefined && record?.id !== null) {
+          resultsMap.set(record.id, record as SearchRecord);
+        }
+      }
+    }
+
+    const results = Array.from(resultsMap.values()).slice(0, 6);
+
+    console.log(
+      "[AI] Supabase records found:",
+      results.length
+    );
+
+    return results;
+  } catch (error) {
+    console.error(
+      "[AI] Supabase search unexpected error:",
+      error
+    );
+
     return [];
   }
 }
- 
- 

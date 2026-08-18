@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { AssistantAnswer, RelatedJudgment } from "./assistant-types";
+import type { ChatMode } from "./chat-store";
  
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const PROMPT_ID = process.env.OPENAI_PROMPT_ID;
@@ -21,12 +22,10 @@ const client = OPENAI_KEY
  
 type GenerateParams = {
   question: string;
-  history?: {
-    role: "user" | "assistant";
-    content: string;
-  }[];
+  history?: { role: "user" | "assistant"; content: string }[];
   records?: any[];
   grounded?: boolean;
+  mode: ChatMode;
 };
  
 export async function generateAnswer(
@@ -40,12 +39,13 @@ export async function generateAnswer(
     throw new Error("OPENAI_PROMPT_ID not configured");
   }
  
-  const {
-    question,
-    history = [],
-    records = [],
-    grounded = false,
-  } = params;
+ const {
+  question,
+  history = [],
+  records = [],
+  grounded = false,
+  mode,
+} = params;
  
   const contextText =
     records.length > 0
@@ -64,40 +64,310 @@ Acts: ${r.Actreferred ?? ""}`
           )
           .join("\n\n")
       : "No matching JusticeLine judgment records were found.";
- 
-  const userInput = `
+ const modeInstructions: Record<ChatMode, string> = {
+  quick: `
+MODE: QUICK ANSWER
+
+Purpose:
+Provide the fastest useful answer to a straightforward legal question.
+
+Behavior:
+- Answer the user's exact question immediately.
+- Do not perform an extensive case-law analysis.
+- Use JusticeLine records when they directly answer the question.
+- If relevant records exist, mention only the most relevant authority or provision.
+- Do not list multiple judgments unless necessary.
+- Do not provide a long legal research discussion.
+- Keep the answer concise.
+
+Preferred structure:
+
+## Short Answer
+
+Give the direct answer in 1–3 sentences.
+
+## Key Points
+
+Use 2–5 bullet points when useful.
+
+## Relevant Provision
+
+Mention the relevant section/Act briefly if supported.
+
+## Conclusion
+
+Give one short concluding statement.
+
+Target length:
+Approximately 150–400 words unless the question requires more.
+
+Do not turn a simple question into a research memorandum.
+`,
+
+  "deep-search": `
+MODE: DEEP SEARCH
+
+Purpose:
+Search and analyze the supplied JusticeLine judgment records to find the most relevant legal authorities for the user's question.
+
+Behavior:
+- Treat the supplied JusticeLine records as the primary research source.
+- Identify the most relevant statutory provisions.
+- Identify the strongest matching judgments.
+- Extract the legal principle actually supported by those records.
+- Explain why each selected judgment is relevant.
+- Prefer a small number of highly relevant authorities over a long list.
+- Distinguish between what the records expressly establish and what is only an inference.
+- Do not invent missing facts, citations, dates, holdings, or statutory wording.
+
+Preferred structure:
+
+## Legal Issue
+
+State the precise legal question.
+
+## Applicable Law
+
+List the relevant statutory provisions.
+
+## Relevant JusticeLine Judgments
+
+For each important judgment:
+- **Case name**
+- Citation/case number if available
+- Court/date if available
+- Key principle
+- Why it is relevant
+
+## Analysis
+
+Explain how the retrieved authorities apply to the question.
+
+## Conclusion
+
+Give the legal position supported by the retrieved JusticeLine material.
+
+Target length:
+Approximately 500–1200 words depending on the amount of relevant material.
+
+Important:
+This mode is primarily about FINDING and ORGANIZING the most relevant JusticeLine authorities.
+Do not merely produce a longer version of Quick Answer.
+`,
+
+  "deep-thinking": `
+MODE: DEEP THINKING
+
+Purpose:
+Perform structured legal reasoning rather than simply summarizing search results.
+
+Behavior:
+- Carefully identify the legal issue.
+- Break the issue into its individual legal questions.
+- Identify the governing statutory provisions.
+- Analyze the relevant JusticeLine judgments.
+- Compare the reasoning of different authorities where appropriate.
+- Examine competing interpretations or factual considerations when supported by the records.
+- Explain the reasoning connecting the legal rule to the facts or issue.
+- Clearly distinguish established legal principles from analytical inference.
+- Do not invent authorities, facts, statutory language, or holdings.
+
+Preferred structure:
+
+## Legal Issue
+
+What exactly must be decided?
+
+## Applicable Law
+
+What statutory provisions govern the issue?
+
+## Relevant Authorities
+
+Identify the strongest JusticeLine cases and explain their holdings.
+
+## Legal Reasoning
+
+Analyze the issue step by step.
+
+Where appropriate, discuss:
+1. The governing rule
+2. The relevant facts or evidence
+3. Application of the rule
+4. Counterarguments or competing interpretations
+5. Why one interpretation is stronger
+
+## Conclusion
+
+State the reasoned legal conclusion.
+
+Target length:
+Approximately 700–1600 words depending on complexity.
+
+Important:
+This mode should demonstrate REASONING and COMPARISON.
+It should not simply repeat the search results.
+`,
+
+  "deep-research": `
+MODE: DEEP RESEARCH
+
+Purpose:
+Produce a comprehensive research-style legal analysis using the available JusticeLine material.
+
+Behavior:
+- Examine all relevant supplied JusticeLine records.
+- Identify the applicable statutory framework.
+- Identify multiple relevant authorities where available.
+- Group authorities by legal issue or principle.
+- Compare authorities where they address similar or different questions.
+- Identify consistent principles and any apparent differences.
+- Explain the development or application of the legal principle only when supported by the supplied material.
+- Synthesize the authorities instead of merely listing them.
+- Clearly identify limitations in the available JusticeLine database.
+- Never fabricate authorities, citations, dates, holdings, statutory provisions, or facts.
+
+Preferred structure:
+
+## Research Question
+
+Clearly state the research problem.
+
+## Executive Summary
+
+Give the main legal position in a concise form.
+
+## Statutory Framework
+
+Explain all relevant statutory provisions.
+
+## Relevant Authorities
+
+Organize the important cases by issue.
+
+For each authority include:
+- **Case**
+- Court
+- Date
+- Citation/case number
+- Relevant facts if available
+- Legal principle
+- Relevance
+
+## Comparative Analysis
+
+Compare the authorities and identify:
+- common principles
+- differences
+- factual distinctions
+- conflicting approaches, if actually present
+
+## Legal Position
+
+Synthesize what the JusticeLine material establishes.
+
+## Practical Implications
+
+Explain what the legal position means in practice.
+
+## Limitations
+
+State what the supplied database does not establish.
+
+## Conclusion
+
+Give the final research conclusion.
+
+Target length:
+Approximately 1200–2500 words when sufficient material exists.
+
+Important:
+This mode should resemble a professional legal research memorandum.
+It must be substantially more comprehensive than Deep Search.
+`,
+};
+const userInput = `
+CURRENT RESPONSE MODE:
+${mode}
+
+MODE-SPECIFIC INSTRUCTIONS:
+${modeInstructions[mode]}
+
 Question:
 ${question}
- 
+
 JusticeLine Database Context:
 ${contextText}
- 
+
 Conversation History:
-${history.length > 0 ? JSON.stringify(history) : "No previous conversation."}
- 
+${
+  history.length > 0
+    ? JSON.stringify(history)
+    : "No previous conversation."
+}
+
 Grounded in JusticeLine database:
 ${grounded ? "Yes" : "No"}
- 
-Answer the user's question according to the instructions in the JusticeLine AI prompt.
+
+Important:
+- JusticeLine database records are the primary source when available.
+- Do not invent legal authorities, citations, case names, dates, sections, or facts.
+- Clearly distinguish database-grounded information from general legal information.
+- Follow the selected mode instructions when generating the answer.
+
+OUTPUT FORMAT:
+- Return ONLY the main legal answer.
+- Format the answer using clean Markdown.
+- Put every heading on its own line.
+- Leave a blank line before and after every heading.
+- Use short paragraphs.
+- Use bullet points where appropriate.
+- Use numbered lists for legal tests, steps, or requirements.
+- Use bold text for important legal terms, sections, and case names.
+
+DO NOT include these sections inside the answer:
+- Related Judgments
+- Related Acts
+- Related Documents
+- Source
+- Confidence
+- Suggested Follow-up Questions
+
+DO NOT include:
+- Copy
+- Ask Follow-Up
+- Clear Chat
+- JSON
+- Code fences
+- UI instructions
+
+Those items are handled separately by the JusticeLine interface.
 `;
  
   try {
     console.log("[DEBUG] Calling OpenAI Responses API");
     console.log("[DEBUG] Prompt ID:", PROMPT_ID);
- 
-    const response = await client.responses.create({
-      model: "gpt-5.5",
- 
-      // IMPORTANT:
-      // prompt must be an OBJECT, not an array.
-      prompt: {
-        id: PROMPT_ID,
-      },
- 
-      input: userInput,
- 
-      max_output_tokens: 1200,
-    });
+ console.log("[AI] SELECTED MODE:", mode);
+console.log("[AI] MODE INSTRUCTIONS:", modeInstructions[mode]);
+const response = await client.responses.create({
+  model: "gpt-5.5",
+
+  prompt: {
+    id: PROMPT_ID,
+    version: "1",
+  },
+
+  input: userInput,
+
+  max_output_tokens:
+  mode === "quick"
+    ? 600
+    : mode === "deep-search"
+      ? 1800
+      : mode === "deep-thinking"
+        ? 2800
+        : 4000,
+});
  
     console.log("[DEBUG] OpenAI response received");
  
