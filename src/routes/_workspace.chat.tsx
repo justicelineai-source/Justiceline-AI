@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   Plus,
   Search,
@@ -17,8 +18,10 @@ import {
   Brain,
   Library,
   Check,
-  ChevronDown,
+    ChevronDown,
   HelpCircle,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +39,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import {
+  loadConversations,
+  saveConversations,
+  getActiveId,
+  setActiveId,
+  newConversation,
+  timeBucket,
+  type Conversation,
+} from "@/lib/chat-store";
  
 export const Route = createFileRoute("/_workspace/chat")({
   head: () => ({
@@ -107,14 +119,7 @@ const MODES: ModeDef[] = [
   },
 ];
  
-const conversations = [
-  { id: "1", title: "Section 138 NI Act — recent SC interpretation", time: "Today" },
-  { id: "2", title: "Adverse possession, Section 27 Limitation", time: "Today" },
-  { id: "3", title: "Bail under Section 439 CrPC — bailable offences", time: "Yesterday" },
-  { id: "4", title: "Specific Relief Act amendments 2018", time: "Yesterday" },
-  { id: "5", title: "Employment termination — notice period claim", time: "Last week" },
-  { id: "6", title: "Trademark opposition — Section 21 timelines", time: "Last week" },
-];
+
  
 const suggestions = [
   { icon: Gavel, text: "Explain Section 498A IPC with recent judgments" },
@@ -124,55 +129,200 @@ const suggestions = [
 ];
  
 function ChatPage() {
-  const [activeId, setActiveId] = useState("1");
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [pending, setPending] = useState(false);
-  const [mode, setMode] = useState<ModeId>("deep-thinking");
+const [conversations, setConversations] = useState<Conversation[]>([]);
+const [activeId, setActiveIdState] = useState<string | null>(null);
+const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+const [input, setInput] = useState("");
+const [messages, setMessages] = useState<Msg[]>([]);
+const [pending, setPending] = useState(false);
+const [mode, setMode] = useState<ModeId>("deep-thinking");
   const [modalOpen, setModalOpen] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
- 
+const scrollRef = useRef<HTMLDivElement>(null);
+
+const saveCurrentConversation = (
+  updatedMessages: Msg[],
+  conversationId?: string
+) => {
+  setConversations((current) => {
+    const id = conversationId ?? activeId;
+
+    // If there is no active conversation yet, create one
+    if (!id) {
+      const newChat = newConversation(mode);
+
+      const firstUserMessage =
+        updatedMessages.find((m) => m.role === "user")?.content ?? "New Chat";
+
+      newChat.title =
+        firstUserMessage.length > 50
+          ? firstUserMessage.slice(0, 50) + "…"
+          : firstUserMessage;
+
+      newChat.messages = updatedMessages;
+      newChat.updatedAt = Date.now();
+
+      const updatedList = [newChat, ...current];
+
+      setActiveIdState(newChat.id);
+      setActiveId(newChat.id);
+
+      saveConversations(updatedList);
+
+      return updatedList;
+    }
+
+    // Update existing conversation
+    const updatedList = current.map((conversation) =>
+      conversation.id === id
+        ? {
+            ...conversation,
+            messages: updatedMessages,
+            updatedAt: Date.now(),
+            mode,
+          }
+        : conversation
+    );
+
+    saveConversations(updatedList);
+
+    return updatedList;
+  });
+};
+ const deleteConversation = (conversationId: string) => {
+  setConversations((current) => {
+    const updatedList = current.filter(
+      (conversation) => conversation.id !== conversationId
+    );
+
+    saveConversations(updatedList);
+
+    return updatedList;
+  });
+
+  if (activeId === conversationId) {
+    setActiveIdState(null);
+    setActiveId(null);
+    setMessages([]);
+  }
+
+  setOpenMenuId(null);
+};
+useEffect(() => {
+  const saved = loadConversations();
+
+  setConversations(saved);
+
+  const savedActiveId = getActiveId();
+
+  if (savedActiveId && saved.some((c) => c.id === savedActiveId)) {
+    setActiveIdState(savedActiveId);
+
+    const activeConversation = saved.find(
+      (c) => c.id === savedActiveId
+    );
+
+    if (activeConversation) {
+      setMessages(activeConversation.messages as Msg[]);
+      setMode(activeConversation.mode as ModeId);
+    }
+  }
+}, []);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, pending]);
  
-  const send = async (text?: string) => {
-    const content = (text ?? input).trim();
-    if (!content) return;
-    setMessages((m) => [...m, { role: "user", content }]);
-    setInput("");
-    setPending(true);
+const send = async (text?: string) => {
+  const content = (text ?? input).trim();
+  if (!content) return;
 
-    try {
-      const res = await fetch(`/api/assistant`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: content }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data?.error) {
-        setMessages((m) => [
-          ...m,
-          { role: "assistant", content: data?.error ?? "Unable to fetch answer from JusticeLine AI.", citations: [] },
-        ]);
-      } else {
-        const citations = (data.judgments ?? []).map((j: any) => j.citation ?? j.title ?? "");
-        setMessages((m) => [
-          ...m,
-          { role: "assistant", content: data.answer ?? "", citations },
-        ]);
-      }
-    } catch (err) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Unable to reach JusticeLine AI.", citations: [] },
-      ]);
-    } finally {
-      setPending(false);
-    }
+  const userMessage: Msg = {
+    role: "user",
+    content,
   };
+
+  const messagesAfterUser = [...messages, userMessage];
+
+  setMessages(messagesAfterUser);
+  setInput("");
+  setPending(true);
+
+  // Save the user's question immediately
+
+  try {
+   const res = await fetch(`/api/assistant`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    question: content,
+    mode,
+    history: messages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  }),
+});
+
+    const data = await res.json();
+
+    if (!res.ok || data?.error) {
+      const assistantMessage: Msg = {
+        role: "assistant",
+        content:
+          data?.error ??
+          "Unable to fetch answer from JusticeLine AI.",
+        citations: [],
+      };
+
+      const finalMessages = [
+        ...messagesAfterUser,
+        assistantMessage,
+      ];
+
+      setMessages(finalMessages);
+
+      // Save user's question + error response
+      saveCurrentConversation(finalMessages);
+    } else {
+      const citations = (data.judgments ?? []).map(
+        (j: any) => j.citation ?? j.title ?? ""
+      );
+
+      const assistantMessage: Msg = {
+        role: "assistant",
+        content: data.answer ?? "",
+        citations,
+      };
+
+      const finalMessages = [
+        ...messagesAfterUser,
+        assistantMessage,
+      ];
+
+      setMessages(finalMessages);
+
+      // Save user's question + AI answer
+      saveCurrentConversation(finalMessages);
+    }
+  } catch (err) {
+    const assistantMessage: Msg = {
+      role: "assistant",
+      content: "Unable to reach JusticeLine AI.",
+      citations: [],
+    };
+
+    const finalMessages = [
+      ...messagesAfterUser,
+      assistantMessage,
+    ];
+
+    setMessages(finalMessages);
+
+    // Save conversation even if API fails
+    saveCurrentConversation(finalMessages);
+  } finally {
+    setPending(false);
+  }
+};
  
   const empty = messages.length === 0;
   const currentMode = MODES.find((m) => m.id === mode)!;
@@ -182,9 +332,17 @@ function ChatPage() {
       {/* Chat sidebar */}
       <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
         <div className="p-4">
-          <Button className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95">
-            <Plus className="h-4 w-4" /> New chat
-          </Button>
+  <Button
+  onClick={() => {
+    setActiveIdState(null);
+    setActiveId(null);
+    setMessages([]);
+    setOpenMenuId(null);
+  }}
+  className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
+>
+  <Plus className="h-4 w-4" /> New chat
+</Button>
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -200,21 +358,72 @@ function ChatPage() {
                 {group}
               </div>
               <div className="space-y-0.5">
-                {conversations.filter((c) => c.time === group).map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setActiveId(c.id)}
-                    className={cn(
-                      "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors",
-                      activeId === c.id
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
-                    )}
-                  >
-                    <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span className="line-clamp-2 leading-snug">{c.title}</span>
-                  </button>
-                ))}
+{conversations
+  .filter((c) => timeBucket(c.updatedAt) === group)
+  .map((c) => (
+    <div
+      key={c.id}
+      className={cn(
+        "group relative flex w-full items-center rounded-md transition-colors",
+        activeId === c.id
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+      )}
+    >
+      {/* Conversation */}
+      <button
+        onClick={() => {
+          const selectedConversation = conversations.find(
+            (conversation) => conversation.id === c.id
+          );
+
+          if (!selectedConversation) return;
+
+          setActiveIdState(selectedConversation.id);
+          setActiveId(selectedConversation.id);
+          setMessages(selectedConversation.messages as Msg[]);
+          setMode(selectedConversation.mode as ModeId);
+          setOpenMenuId(null);
+        }}
+        className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left text-xs"
+      >
+        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+
+        <span className="line-clamp-2 leading-snug">
+          {c.title}
+        </span>
+      </button>
+
+      {/* Three-dot menu */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpenMenuId(
+            openMenuId === c.id ? null : c.id
+          );
+        }}
+        className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100"
+        aria-label="Conversation options"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+
+      {/* Menu */}
+      {openMenuId === c.id && (
+        <div className="absolute right-1 top-9 z-50 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
+          <button
+            type="button"
+            onClick={() => deleteConversation(c.id)}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  ))}
               </div>
             </div>
           ))}
@@ -283,7 +492,47 @@ function ChatPage() {
                       </div>
                     ) : (
                       <div className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground">
-                        {m.content}
+                        <ReactMarkdown
+  components={{
+    h2: ({ children }) => (
+      <h2 className="mb-3 mt-6 text-lg font-semibold text-foreground first:mt-0">
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => (
+      <h3 className="mb-2 mt-5 text-base font-semibold text-foreground">
+        {children}
+      </h3>
+    ),
+    p: ({ children }) => (
+      <p className="mb-3 leading-7 text-foreground">
+        {children}
+      </p>
+    ),
+    ul: ({ children }) => (
+      <ul className="mb-4 ml-5 list-disc space-y-1.5">
+        {children}
+      </ul>
+    ),
+    ol: ({ children }) => (
+      <ol className="mb-4 ml-5 list-decimal space-y-1.5">
+        {children}
+      </ol>
+    ),
+    li: ({ children }) => (
+      <li className="leading-7">
+        {children}
+      </li>
+    ),
+    strong: ({ children }) => (
+      <strong className="font-semibold text-foreground">
+        {children}
+      </strong>
+    ),
+  }}
+>
+  {m.content}
+</ReactMarkdown>
                         {m.citations && (
                           <div className="mt-4 rounded-lg border border-border bg-secondary/50 p-3">
                             <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
