@@ -1,7 +1,13 @@
 import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { FloatingAssistant } from "@/components/assistant/FloatingAssistant";
+
+import { MobileHeader } from "@/components/mobile/MobileHeader";
+import { MobileSidebar } from "@/components/mobile/MobileSidebar";
+import { TabletLayout } from "@/components/tablet/TabletLayout";
+
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
@@ -12,12 +18,33 @@ export const Route = createFileRoute("/_workspace")({
 });
 
 function WorkspaceLayout() {
-  const { hydrated, isAuthenticated, requireAuth, loginModalOpen } = useAuth();
-  const href = useRouterState({ select: (s) => s.location.href });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    hydrated,
+    isAuthenticated,
+    requireAuth,
+    loginModalOpen,
+  } = useAuth();
+
+  const href = useRouterState({
+    select: (s) => s.location.href,
+  });
 
   useEffect(() => {
-    if (hydrated && !isAuthenticated && !loginModalOpen) requireAuth(href);
-  }, [hydrated, isAuthenticated, loginModalOpen, requireAuth, href]);
+    if (
+      hydrated &&
+      !isAuthenticated &&
+      !loginModalOpen
+    ) {
+      requireAuth(href);
+    }
+  }, [
+    hydrated,
+    isAuthenticated,
+    loginModalOpen,
+    requireAuth,
+    href,
+  ]);
 
   if (!hydrated) {
     return <div className="min-h-screen bg-background" />;
@@ -30,13 +57,19 @@ function WorkspaceLayout() {
           <div className="flex justify-center">
             <Logo />
           </div>
+
           <div className="mx-auto mt-6 grid h-12 w-12 place-items-center rounded-full bg-muted">
             <Lock className="h-5 w-5 text-primary" />
           </div>
-          <h1 className="mt-4 font-serif text-2xl font-semibold tracking-tight">Sign in to continue</h1>
+
+          <h1 className="mt-4 font-serif text-2xl font-semibold tracking-tight">
+            Sign in to continue
+          </h1>
+
           <p className="mt-2 text-sm text-muted-foreground">
             This workspace is available to signed-in members.
           </p>
+
           <Button
             className="mt-6 bg-brand-gradient text-white hover:opacity-95"
             onClick={() => requireAuth(href)}
@@ -49,14 +82,50 @@ function WorkspaceLayout() {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
-      <AppSidebar />
-      <div className="ml-64 flex min-w-0 flex-1 flex-col">
-        <Outlet />
+    <>
+      {/* =====================================================
+          MOBILE: below 768px
+          ===================================================== */}
+      <div className="block min-h-screen w-full bg-background md:hidden">
+  
+  <MobileHeader
+    onMenuClick={() => setMobileMenuOpen(true)}
+  />
+
+  <MobileSidebar
+    open={mobileMenuOpen}
+    onOpenChange={setMobileMenuOpen}
+  />
+
+  <main className="min-h-[calc(100vh-64px)] min-w-0">
+    <Outlet />
+  </main>
+</div>
+
+      {/* =====================================================
+          TABLET: 768px to 1023px
+          ===================================================== */}
+      <div className="hidden md:block lg:hidden">
+        <TabletLayout>
+          <Outlet />
+        </TabletLayout>
       </div>
+
+      {/* =====================================================
+          DESKTOP: 1024px and above
+          ===================================================== */}
+      <div className="hidden min-h-screen w-full bg-background lg:flex">
+        <AppSidebar />
+
+        <main className="ml-64 flex min-w-0 flex-1 flex-col">
+          <Outlet />
+        </main>
+      </div>
+
+      {/* Floating assistant for all layouts */}
       <div className="no-print">
         <FloatingAssistant />
       </div>
-    </div>
+    </>
   );
 }

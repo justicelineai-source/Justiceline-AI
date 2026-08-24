@@ -26,8 +26,8 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { supabase } from "@/integrations/supabase/client";
-
-
+ 
+ 
 type JudgmentRow = {
   id?: number;
   Keycode?: number | null;
@@ -145,8 +145,7 @@ const [judgments, setJudgments] = useState<JudgmentRow[]>([]);
       toolbar.remove();
     }
  
-    // Create temporary PDF container.
-   // Create temporary PDF container.
+ 
 const container = document.createElement("div");
  
 container.style.position = "fixed";
@@ -157,11 +156,107 @@ container.style.backgroundColor = "#ffffff";
  
 // Keep the PDF copy centered and within the A4 printable area.
 clone.style.backgroundColor = "#ffffff";
-clone.style.color = "#351515";
+clone.style.color = "#000000";
 clone.style.width = "180mm";
 clone.style.maxWidth = "180mm";
 clone.style.margin = "0 auto";
 clone.style.boxSizing = "border-box";
+ 
+ 
+ // PDF ONLY: force all text to pure black
+const pdfStyle = document.createElement("style");
+ 
+pdfStyle.textContent = `
+  *,
+  *::before,
+  *::after {
+    color: #000000 !important;
+  }
+ 
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+ 
+  .pdf-document {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+ 
+  .pdf-main {
+    color: #000000 !important;
+  }
+ 
+  .judgment-content {
+    color: #000000 !important;
+  }
+ 
+  /* =========================================
+   PDF PAGE BREAK CONTROL
+   ========================================= */
+ 
+/* Allow normal paragraphs to flow naturally */
+p {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+ 
+/* Headings should stay with the following content */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+ 
+/* Small metadata blocks can stay together */
+.pdf-main section > h3 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+ 
+/* Lists can flow naturally */
+li {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+ 
+/* Tables should avoid splitting rows */
+table,
+tr {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+ 
+/* Don't force large legal paragraphs to a new page */
+.judgment-content {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+ 
+.judgment-content p,
+.judgment-content div {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+ 
+/* Headnote should also flow naturally */
+.pdf-main section p {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+ 
+/* Toolbar never goes into PDF */
+.pdf-toolbar {
+  display: none !important;
+}
+`;
+ 
+clone.prepend(pdfStyle);
  
 // Remove the extra responsive padding/max-width from the PDF copy.
 const pdfMain = clone.querySelector(".pdf-main") as HTMLElement | null;
@@ -196,58 +291,131 @@ document.body.appendChild(container);
       useCORS: true,
       backgroundColor: "#ffffff",
  
-      onclone: (clonedDocument: Document) => {
-        // html2canvas does not support oklch().
-        // Replace oklch colors in cloned styles with safe fallback colors.
-        const styles = clonedDocument.querySelectorAll("style");
- 
-        styles.forEach((styleElement) => {
-          styleElement.textContent =
-            styleElement.textContent?.replace(
-              /oklch\([^)]*\)/gi,
-              "#351515"
-            ) ?? "";
-        });
- 
-        // Also remove any oklch CSS variables from the cloned document.
-        const allElements = clonedDocument.querySelectorAll("*");
- 
-        allElements.forEach((element) => {
-          const htmlElement = element as HTMLElement;
- 
-          const computedStyle =
-            clonedDocument.defaultView?.getComputedStyle(htmlElement);
- 
-          if (!computedStyle) return;
- 
-          const colorProperties = [
-            "color",
-            "backgroundColor",
-            "borderTopColor",
-            "borderRightColor",
-            "borderBottomColor",
-            "borderLeftColor",
-          ] as const;
- 
-          colorProperties.forEach((property) => {
-            const value = computedStyle[property];
- 
-            if (value && value.includes("oklch")) {
-              htmlElement.style[property] =
-                property === "backgroundColor"
-                  ? "#ffffff"
-                  : "#351515";
-            }
-          });
-        });
-      },
-    },
- 
-    jsPDF: {
+      jsPDF: {
       unit: "mm",
       format: "a4",
       orientation: "portrait",
     },
+ 
+   onclone: (clonedDocument: Document) => {
+  /*
+   * PDF SAFE MODE
+   * --------------------------------------------------
+   * html2canvas cannot parse modern oklch() colors.
+   * We remove stylesheet color problems and force
+   * all PDF text to pure black.
+   */
+ 
+  // 1. Remove external stylesheet links from the PDF clone.
+  //    The original website is NOT affected.
+  clonedDocument
+    .querySelectorAll('link[rel="stylesheet"]')
+    .forEach((link) => link.remove());
+ 
+  // 2. Replace every oklch() found inside style tags.
+  clonedDocument.querySelectorAll("style").forEach((style) => {
+    style.textContent =
+      style.textContent
+        ?.replace(/oklch\([^)]*\)/gi, "#000000")
+        .replace(/color\([^)]*\)/gi, "#000000") ?? "";
+  });
+ 
+  // 3. Force PDF text to black.
+  const allElements = clonedDocument.querySelectorAll("*");
+ 
+  allElements.forEach((element) => {
+    const htmlElement = element as HTMLElement;
+ 
+    htmlElement.style.setProperty(
+      "color",
+      "#000000",
+      "important"
+    );
+ 
+    // Convert inline oklch colors if database HTML contains them.
+    const inlineStyle = htmlElement.getAttribute("style");
+ 
+    if (inlineStyle && /oklch\(/i.test(inlineStyle)) {
+      htmlElement.setAttribute(
+        "style",
+        inlineStyle.replace(
+          /oklch\([^)]*\)/gi,
+          "#000000"
+        )
+      );
+    }
+  });
+ 
+  // 4. Force the main PDF areas to black text.
+  const pdfDocument =
+    clonedDocument.querySelector(".pdf-document");
+ 
+  if (pdfDocument) {
+    (pdfDocument as HTMLElement).style.setProperty(
+      "color",
+      "#000000",
+      "important"
+    );
+ 
+    (pdfDocument as HTMLElement).style.setProperty(
+      "background-color",
+      "#ffffff",
+      "important"
+    );
+  }
+ 
+  const pdfMain =
+    clonedDocument.querySelector(".pdf-main");
+ 
+  if (pdfMain) {
+    (pdfMain as HTMLElement).style.setProperty(
+      "color",
+      "#000000",
+      "important"
+    );
+  }
+ 
+  // 5. Force judgment HTML to black.
+  const judgmentContent =
+    clonedDocument.querySelector(".judgment-content");
+ 
+  if (judgmentContent) {
+    const content =
+      judgmentContent as HTMLElement;
+ 
+    content.style.setProperty(
+      "color",
+      "#000000",
+      "important"
+    );
+ 
+    content
+      .querySelectorAll("*")
+      .forEach((element) => {
+        (element as HTMLElement).style.setProperty(
+          "color",
+          "#000000",
+          "important"
+        );
+      });
+  }
+ 
+  // 6. Force Headnote and Advocates HTML to black.
+  clonedDocument
+    .querySelectorAll(
+      ".judgment-content, .pdf-main div, .pdf-main p, .pdf-main span"
+    )
+    .forEach((element) => {
+      (element as HTMLElement).style.setProperty(
+        "color",
+        "#000000",
+        "important"
+      );
+    });
+},
+    },
+ 
+   
   })
   .from(clone)
   .outputPdf("blob");
@@ -330,7 +498,8 @@ try {
  
   if (judge.trim()) {
     query.ilike("Judges", `%${judge.trim()}%`);
-  }
+ 
+ }
  
   if (actOrSection.trim()) {
     query.ilike("Actreferred", `%${actOrSection.trim()}%`);
@@ -804,46 +973,47 @@ finally {
     Judgement Details
   </h2>
  
-  {/* Actions */}
-  <div className="flex items-center gap-2">
- 
-     {/* View PDF */}
-            <Button
-  type="button"
-  variant="outline"
-  onClick={handleDownloadPdf}
-  className="rounded-full border-slate-200 px-5 text-[#17233c]"
->
-  <Printer className="mr-2 h-4 w-4" />
-  View PDF
-</Button>
- 
-    {/* Fullscreen */}
+   {/* Actions */}
+ <div className="flex items-center gap-2">
+  {/* Show View button only in fullscreen */}
+  {isJudgmentFullscreen && (
     <Button
       type="button"
-      variant="ghost"
-      size="icon"
-      onClick={() =>
-        setIsJudgmentFullscreen((current) => !current)
-      }
-      className="
-        h-9 w-9
-        text-[#806B5F]
-        hover:bg-[#F5EEDC]
-        hover:text-[#351515]
-      "
-      title={
-        isJudgmentFullscreen
-          ? "Exit fullscreen"
-          : "Fullscreen"
-      }
+      variant="outline"
+      onClick={handleDownloadPdf}
+      className="rounded-full border-slate-200 px-5 text-[#17233c]"
     >
-      {isJudgmentFullscreen ? (
-        <Minimize2 className="h-5 w-5" />
-      ) : (
-        <Maximize2 className="h-5 w-5" />
-      )}
+      <Printer className="mr-2 h-4 w-4" />
+      View
     </Button>
+  )}
+ 
+  {/* Fullscreen Toggle */}
+  <Button
+    type="button"
+    variant="ghost"
+    onClick={() => setIsJudgmentFullscreen((current) => !current)}
+   className={`rounded-full h-9 px-4 hover:bg-[#F5EEDC] ${
+  isJudgmentFullscreen
+    ? "text-black hover:text-black"
+    : "text-[#806B5F] hover:text-[#351515]"
+}`}
+    title={isJudgmentFullscreen ? "Exit Fullscreen" : "Open"}
+ 
+ >
+    {isJudgmentFullscreen ? (
+      <>
+        <Minimize2 className="mr-2 h-4 w-4" />
+        Minimize
+      </>
+    ) : (
+      <>
+        <Maximize2 className="mr-2 h-4 w-4" />
+        Open
+      </>
+    )}
+  </Button>
+ 
  
     {/* Close */}
     <Button
@@ -1110,6 +1280,7 @@ finally {
     </>
   );
 }
+ 
  
  
  
