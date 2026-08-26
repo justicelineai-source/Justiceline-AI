@@ -1,10 +1,8 @@
-import { useState } from "react";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
 import { MobileNavigation } from "./MobileNavigation";
-import { MobileChatNavigation } from "./MobileChatNavigation";
 import { useAuth } from "@/lib/auth";
 import { displayName, initialsFor } from "@/lib/db/profiles";
 
@@ -18,7 +16,7 @@ export function MobileSidebar({
   onOpenChange,
 }: MobileSidebarProps) {
   const { profile, signOut } = useAuth();
-const [showChatNavigation, setShowChatNavigation] = useState(false);
+
   const name = displayName(profile) || "JusticeLine User";
   const initials = initialsFor(profile);
 
@@ -38,41 +36,19 @@ const [showChatNavigation, setShowChatNavigation] = useState(false);
             to="/dashboard"
             onClick={() => onOpenChange(false)}
           >
-            <Logo className="h-10" />
+            <Logo
+              variant="onDark"
+              className="h-10"
+            />
           </Link>
         </div>
 
-       {/* Navigation */}
-<div className="min-h-0 flex-1 overflow-y-auto p-3">
-  {showChatNavigation ? (
-    <div className="flex h-full flex-col">
-      
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={() => setShowChatNavigation(false)}
-        className="mb-4 flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Menu
-      </button>
-
-     {/* Chat Navigation */} 
-<div className="min-h-0 flex-1"> 
-  <MobileChatNavigation
-    onNewChat={() => {
-      console.log("New Chat clicked");
-    }}
-  />
-</div>
-    </div>
-  ) : (
-    <MobileNavigation
-  onNavigate={() => onOpenChange(false)}
-  onOpenChatNavigation={() => setShowChatNavigation(true)}
-/>
-  )}
-</div>
+        {/* Main Navigation */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <MobileNavigation
+            onNavigate={() => onOpenChange(false)}
+          />
+        </div>
 
         {/* User */}
         <div className="shrink-0 border-t border-sidebar-border p-3">

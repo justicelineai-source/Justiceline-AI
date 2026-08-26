@@ -37,8 +37,13 @@ const initials = initialsFor(profile);
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex h-16 items-center border-b border-sidebar-border px-5">
-        <Link to="/dashboard"><Logo /></Link>
-      </div>
+  <Link to="/dashboard">
+    <Logo
+      variant="onDark"
+      className="h-10"
+    />
+  </Link>
+</div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
         <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/50">
           Workspace

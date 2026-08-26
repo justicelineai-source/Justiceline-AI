@@ -954,8 +954,8 @@ finally {
   <DialogContent
     className={
       isJudgmentFullscreen
-        ? "h-screen w-screen max-w-none overflow-y-auto rounded-none bg-[#FBFAF6] p-0"
-        : "max-h-[95vh] max-w-6xl overflow-y-auto bg-[#FBFAF6] p-0"
+  ? "h-screen w-screen max-w-none overflow-y-auto rounded-none bg-white p-0"
+  : "max-h-[95vh] max-w-6xl overflow-y-auto bg-white p-0"
     }
   >
          {selectedJudgment && (
@@ -963,59 +963,85 @@ finally {
   ref={judgmentDocumentRef}
   className="pdf-document min-h-full bg-white text-[#351515]"
 >
-{/* =====================================================
-    TOP TOOLBAR
-====================================================== */}
-<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center justify-between border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
+{/* TOP TOOLBAR */}
+<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
  
-  {/* Title */}
-  <h2 className="text-xl font-bold text-[#351515]">
-    Judgement Details
-  </h2>
+  {/* LEFT — TITLE */}
+  <div className="flex min-w-0 flex-1 items-center">
+    <h2 className="truncate text-xl font-bold text-black">
+      Judgement Details
+    </h2>
+  </div>
  
-   {/* Actions */}
- <div className="flex items-center gap-2">
-  {/* Show View button only in fullscreen */}
-  {isJudgmentFullscreen && (
+  {/* RIGHT — ACTIONS */}
+  <div className="ml-auto flex shrink-0 items-center gap-2">
+ 
+    {/* View button — only fullscreen */}
+    {isJudgmentFullscreen && (
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleDownloadPdf}
+        className="
+          h-10
+          rounded-full
+          border-slate-200
+          bg-white
+          px-5
+          text-sm
+          font-medium
+          text-black
+          shadow-sm
+          hover:bg-slate-50
+          hover:text-black
+        "
+      >
+        <Printer className="mr-2 h-4 w-4" />
+        <span>View</span>
+ 
+     </Button>
+    )}
+ 
+    {/* Open / Minimize */}
     <Button
       type="button"
       variant="outline"
-      onClick={handleDownloadPdf}
-      className="rounded-full border-slate-200 px-5 text-[#17233c]"
+      onClick={() =>
+        setIsJudgmentFullscreen((current) => !current)
+      }
+      className="
+        h-10
+        rounded-full
+        border-slate-300
+        bg-white
+        px-5
+        text-sm
+        font-medium
+        text-black
+        shadow-sm
+        hover:bg-slate-50
+        hover:text-black
+      "
+      title={
+        isJudgmentFullscreen
+          ? "Exit Fullscreen"
+          : "Open Fullscreen"
+      }
     >
-      <Printer className="mr-2 h-4 w-4" />
-      View
+      {isJudgmentFullscreen ? (
+        <>
+          <Minimize2 className="mr-2 h-4 w-4" />
+          <span>Minimize</span>
+        </>
+      ) : (
+        <>
+          <Maximize2 className="mr-2 h-4 w-4" />
+          <span>Open</span>
+        </>
+      )}
     </Button>
-  )}
  
-  {/* Fullscreen Toggle */}
-  <Button
-    type="button"
-    variant="ghost"
-    onClick={() => setIsJudgmentFullscreen((current) => !current)}
-   className={`rounded-full h-9 px-4 hover:bg-[#F5EEDC] ${
-  isJudgmentFullscreen
-    ? "text-black hover:text-black"
-    : "text-[#806B5F] hover:text-[#351515]"
-}`}
-    title={isJudgmentFullscreen ? "Exit Fullscreen" : "Open"}
- 
- >
-    {isJudgmentFullscreen ? (
-      <>
-        <Minimize2 className="mr-2 h-4 w-4" />
-        Minimize
-      </>
-    ) : (
-      <>
-        <Maximize2 className="mr-2 h-4 w-4" />
-        Open
-      </>
-    )}
-  </Button>
- 
- 
-    {/* Close */}
+    {/* CLOSE */}
     <Button
       type="button"
       variant="ghost"
@@ -1025,15 +1051,18 @@ finally {
         setIsJudgmentFullscreen(false);
       }}
       className="
-        h-9 w-9
-        text-[#806B5F]
-        hover:bg-[#F5EEDC]
-        hover:text-[#351515]
+        h-10
+        w-10
+        rounded-full
+        text-black
+        hover:bg-slate-100
+        hover:text-black
       "
       title="Close"
     >
       <X className="h-5 w-5" />
     </Button>
+ 
  
   </div>
 </div>
@@ -1061,12 +1090,12 @@ finally {
             </h2>
  
             {/* APPELLANT */}
-            <p className="mt-4 text-lg font-bold leading-7 text-[#351515]">
-              {selectedJudgment.Appellant ?? "Appellant"}
-              <span className="font-normal text-[#806B5F]">
-                {" "}– Appellants
-              </span>
-            </p>
+            <p className="mt-4 text-lg font-bold leading-7 text-black">
+  {selectedJudgment.Appellant ?? "Appellant"}
+  <span className="font-normal text-black">
+    {" "}– Appellants
+  </span>
+</p>
  
             {/* VERSUS */}
             <p className="my-2 text-lg font-bold text-[#351515]">
@@ -1074,25 +1103,26 @@ finally {
             </p>
  
             {/* RESPONDENT */}
-            <p className="text-lg font-bold leading-7 text-[#351515]">
-              {selectedJudgment.Respondent ?? "Respondent"}
-              <span className="font-normal text-[#806B5F]">
-                {" "}– Respondents
-              </span>
-            </p>
+           <p className="text-lg font-bold leading-7 text-black">
+  {selectedJudgment.Respondent ?? "Respondent"}
+  <span className="font-normal text-black">
+    {" "}– Respondents
+  </span>
+</p>
  
             {/* CASE NUMBER */}
-            <p className="mt-4 text-base text-[#806B5F]">
-              {selectedJudgment.CaseNo ?? "Case number unavailable"}
-            </p>
+            <p className="mt-4 text-base text-black">
+  {selectedJudgment.CaseNo ?? "Case number unavailable"}
+</p>
  
             {/* DATE */}
-            <p className="mt-2 text-base text-[#806B5F]">
-              <span className="font-medium text-[#351515]">
-                Decided On :
-              </span>{" "}
-              {formatDate(selectedJudgment.Date)}
-            </p>
+            <p className="mt-2 text-base text-black">
+  <span className="font-medium text-black">
+    Decided On :
+  </span>{" "}
+  {formatDate(selectedJudgment.Date)}
+</p>
+ 
           </section>
  
      
@@ -1115,21 +1145,17 @@ finally {
                       key={index}
                       className="flex items-start gap-3"
                     >
-                      <span
-                        className="
-                          flex h-8 w-8 shrink-0
-                          items-center justify-center
-                          rounded-full
-                          bg-[#F5EEDC]
-                          text-sm
-                          font-bold
-                          text-[#B88932]
-                        "
-                      >
-                        {index + 1}
-                      </span>
+                    <div className="flex items-start gap-4 py-2">
+  <span className="w-0 shrink-0 text-base font-semibold text-black">
+    {index + 1}.
+  </span>
  
-                      <p className="pt-1 text-base leading-7 text-[#351515]">
+  <span className="flex-1 text-[15px] leading-7 text-gray-900">
+    {judge.trim()}
+  </span>
+</div>
+ 
+                      <p className="pt-1 text-base leading-7 text-black">
                         {act.replace(
                           /^\s*\d+[\.\)]\s*/,
                           ""
@@ -1162,21 +1188,17 @@ finally {
                       key={index}
                       className="flex items-center gap-3"
                     >
-                      <span
-                        className="
-                          flex h-8 w-8
-                          items-center justify-center
-                          rounded-full
-                          bg-[#F5EEDC]
-                          text-sm
-                          font-bold
-                          text-[#B88932]
-                        "
-                      >
-                        {index + 1}
-                      </span>
+                      <div className="flex items-start gap-4 py-2">
+  <span className="w-1 shrink-0 text-base font-semibold text-black">
+    {index + 1}.
+  </span>
  
-                      <span className="text-base text-[#351515]">
+  <span className="flex-1 text-[15px] leading-7 text-gray-900">
+    {judge.trim()}
+  </span>
+</div>
+ 
+                      <span className="text-base text-black">
                         {judge.trim()}
                       </span>
                     </div>
@@ -1213,7 +1235,7 @@ finally {
 {(selectedJudgment.Headnote ||
   selectedJudgment.HNote) && (
   <section className="mt-10 border-t border-[#E4DCD2] pt-8">
-<h3 className="mb-4 text-lg font-bold text-[#351515]">
+<h3 className="mb-4 text-lg font-bold text-black">
   Headnote
 </h3>
  
@@ -1280,6 +1302,7 @@ finally {
     </>
   );
 }
+ 
  
  
  

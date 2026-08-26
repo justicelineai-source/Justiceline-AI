@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 
 type MobileNavigationProps = {
   onNavigate?: () => void;
-  onOpenChatNavigation?: () => void;
 };
 
 const items = [
@@ -62,8 +61,8 @@ const items = [
 
 export function MobileNavigation({
   onNavigate,
-  onOpenChatNavigation,
 }: MobileNavigationProps) {
+
   const pathname = useRouterState({
     select: (s) => s.location.pathname,
   });
@@ -106,18 +105,6 @@ const itemClassName = cn(
     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
 );
 
-if (item.to === "/chat") {
-  return (
-    <button
-      key={item.to}
-      type="button"
-      onClick={onOpenChatNavigation}
-      className={itemClassName}
-    >
-      {content}
-    </button>
-  );
-}
 
 return (
   <Link

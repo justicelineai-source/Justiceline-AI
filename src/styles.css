@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,ital,wght@6..96,400;6..96,500;6..96,600;6..96,700;6..96,800;6..96,900&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -5,8 +7,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Fraunces", "Georgia", serif;
+  /* Typography */
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Bodoni Moda", Georgia, serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -56,7 +59,7 @@
   --radius: 0.75rem;
 
   /* Brand: JusticeLine deep maroon + gold */
-  --background: oklch(0.985 0.005 100);
+  --background: oklch(1 0 0);
   --foreground: oklch(0.18 0.02 20);
 
   --card: oklch(1 0 0);
@@ -64,22 +67,22 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.02 20);
 
-  --primary: oklch(0.34 0.11 25);        /* #6A1B1A deep maroon */
-  --primary-foreground: oklch(0.985 0.005 100);
+  --primary: oklch(0.34 0.11 25);
+  --primary-foreground: oklch(1 0 0);
 
-  --gold: oklch(0.68 0.13 82);           /* #B8860B */
+  --gold: oklch(0.68 0.13 82);
   --gold-foreground: oklch(0.18 0.02 20);
 
-  --secondary: oklch(0.97 0.01 80);
+  --secondary: oklch(0.972 0.003 60);
   --secondary-foreground: oklch(0.22 0.03 25);
-  --muted: oklch(0.965 0.005 80);
-  --muted-foreground: oklch(0.48 0.02 20);
-  --accent: oklch(0.955 0.02 80);
+  --muted: oklch(0.97 0.002 60);
+  --muted-foreground: oklch(0.48 0.015 20);
+  --accent: oklch(0.965 0.004 60);
   --accent-foreground: oklch(0.28 0.05 25);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.008 60);
-  --input: oklch(0.94 0.008 60);
+  --border: oklch(0.925 0.004 60);
+  --input: oklch(0.945 0.004 60);
   --ring: oklch(0.34 0.11 25);
 
   --chart-1: oklch(0.34 0.11 25);
@@ -130,33 +133,110 @@
   --sidebar-ring: oklch(0.68 0.13 82);
 }
 
+/* ========================================
+   TYPOGRAPHY ONLY
+   ======================================== */
+
 @layer base {
   * {
     border-color: var(--color-border);
   }
 
-  html, body {
+  html,
+  body {
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+
+    font-feature-settings:
+      "cv02",
+      "cv03",
+      "cv04",
+      "cv11";
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4 {
-    letter-spacing: -0.02em;
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
   }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: var(--font-sans);
+  }
+}
+
+/* Main Premium Headings */
+.font-heading {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* Normal UI */
+.font-ui {
+  font-family: var(--font-sans);
+}
+
+/* JusticeLine Brand / Logo */
+.text-brand {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+/* Small Uppercase Labels */
+.text-label {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Premium Body Text */
+.text-premium {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 @utility bg-brand-gradient {
-  background-image: linear-gradient(135deg, oklch(0.34 0.11 25) 0%, oklch(0.28 0.09 20) 55%, oklch(0.22 0.06 20) 100%);
+  background-image: linear-gradient(
+    135deg,
+    oklch(0.34 0.11 25) 0%,
+    oklch(0.28 0.09 20) 55%,
+    oklch(0.22 0.06 20) 100%
+  );
 }
 
 @utility bg-gold-gradient {
-  background-image: linear-gradient(135deg, oklch(0.72 0.14 82) 0%, oklch(0.62 0.12 70) 100%);
+  background-image: linear-gradient(
+    135deg,
+    oklch(0.72 0.14 82) 0%,
+    oklch(0.62 0.12 70) 100%
+  );
 }
 
 @utility text-gradient-gold {
-  background: linear-gradient(135deg, oklch(0.75 0.14 82), oklch(0.55 0.1 60));
+  background: linear-gradient(
+    135deg,
+    oklch(0.75 0.14 82),
+    oklch(0.55 0.1 60)
+  );
+
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -178,7 +258,12 @@
   background: color-mix(in oklab, white 78%, transparent);
   backdrop-filter: saturate(1.4) blur(14px);
   -webkit-backdrop-filter: saturate(1.4) blur(14px);
-  border: 1px solid color-mix(in oklab, white 60%, oklch(0.34 0.11 25) 8%);
+  border: 1px solid
+    color-mix(
+      in oklab,
+      white 60%,
+      oklch(0.34 0.11 25) 8%
+    );
 }
 
 @utility hairline {
@@ -196,15 +281,36 @@
 /* Authentic Indian legal document paper */
 .legal-paper {
   background:
-    repeating-linear-gradient(180deg, #fdfcf7 0, #fdfcf7 26px, #fbfaf5 26px, #fbfaf5 27px);
+    repeating-linear-gradient(
+      180deg,
+      #fdfcf7 0,
+      #fdfcf7 26px,
+      #fbfaf5 26px,
+      #fbfaf5 27px
+    );
 }
 
 /* Print mode: strip app chrome, print only the legal document */
 @media print {
-  @page { size: A4; margin: 18mm 16mm; }
-  html, body { background: #fff !important; }
-  body * { visibility: hidden !important; }
-  #legal-doc-print-root, #legal-doc-print-root * { visibility: visible !important; }
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #legal-doc-print-root,
+  #legal-doc-print-root * {
+    visibility: visible !important;
+  }
+
   #legal-doc-print-root {
     position: absolute !important;
     inset: 0 !important;
@@ -215,5 +321,8 @@
     max-width: none !important;
     width: 100% !important;
   }
-  .no-print { display: none !important; }
+
+  .no-print {
+    display: none !important;
+  }
 }

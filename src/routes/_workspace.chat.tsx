@@ -48,6 +48,8 @@ import {
   timeBucket,
   type Conversation,
 } from "@/lib/chat-store";
+import { MobileSidebar } from "@/components/mobile/MobileSidebar";
+import { MobileChatQuickActions } from "@/components/mobile/MobileChat";
  
 export const Route = createFileRoute("/_workspace/chat")({
   head: () => ({
@@ -328,7 +330,7 @@ const send = async (text?: string) => {
   const currentMode = MODES.find((m) => m.id === mode)!;
  
   return (
-    <div className="flex h-screen min-h-0 flex-1">
+    <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 overflow-x-hidden">
       {/* Chat sidebar */}
       <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
         <div className="p-4">
@@ -432,13 +434,42 @@ const send = async (text?: string) => {
  
       {/* Main chat */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">Section 138 NI Act — recent SC interpretation</h1>
-            <p className="text-xs text-muted-foreground">JusticeLine AI · Grounded in Indian case law</p>
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-4 lg:px-6">
+          <div className="md:hidden">
+            <MobileSidebar />
           </div>
-          <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-semibold">
+              {conversations.find((c) => c.id === activeId)?.title ?? "New Chat"}
+            </h1>
+            <p className="truncate text-xs text-muted-foreground">
+              JusticeLine AI · Grounded in Indian case law
+            </p>
+          </div>
+          <div className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground sm:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live · GPT-4 legal
+          </div>
+          <div className="lg:hidden">
+            <MobileChatQuickActions
+              conversations={conversations}
+              activeId={activeId}
+              onSelect={(id) => {
+                const selected = conversations.find((c) => c.id === id);
+                if (!selected) return;
+                setActiveIdState(selected.id);
+                setActiveId(selected.id);
+                setMessages(selected.messages as Msg[]);
+                setMode(selected.mode as ModeId);
+                setOpenMenuId(null);
+              }}
+              onDelete={deleteConversation}
+              onNewChat={() => {
+                setActiveIdState(null);
+                setActiveId(null);
+                setMessages([]);
+                setOpenMenuId(null);
+              }}
+            />
           </div>
         </div>
  
@@ -477,7 +508,7 @@ const send = async (text?: string) => {
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
+            <div className="mx-auto max-w-3xl space-y-6 px-3 py-6 sm:space-y-8 sm:px-6 sm:py-8">
               {messages.map((m, i) => (
                 <div key={i} className={cn("flex gap-4", m.role === "user" && "justify-end")}>
                   {m.role === "assistant" && (
@@ -485,7 +516,7 @@ const send = async (text?: string) => {
                       <Scale className="h-4 w-4" />
                     </div>
                   )}
-                  <div className={cn("min-w-0 max-w-[85%]", m.role === "user" ? "" : "flex-1")}>
+                  <div className={cn("min-w-0 max-w-[92%] break-words sm:max-w-[85%]", m.role === "user" ? "" : "flex-1")}>
                     {m.role === "user" ? (
                       <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
                         {m.content}
@@ -571,7 +602,7 @@ const send = async (text?: string) => {
  
  
  {/* Composer */}
-        <div className="border-t border-border bg-background p-4 sm:p-6">
+        <div className="border-t border-border bg-background p-3 sm:p-6">
           <div className="mx-auto max-w-3xl">
             {/* Current mode indicator */}
             <div className="mb-2 flex items-center justify-between">
@@ -628,7 +659,7 @@ const send = async (text?: string) => {
                   <Button type="button" size="icon" variant="ghost" className="h-8 w-8">
                     <Mic className="h-4 w-4" />
                   </Button>
-                  <span className="ml-1 text-[11px] text-muted-foreground">
+                  <span className="ml-1 hidden text-[11px] text-muted-foreground sm:inline">
                     Grounded in Indian case law · Verify before filing
                   </span>
                 </div>
@@ -678,8 +709,8 @@ function ResponseModeDialog({
  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl overflow-hidden p-0">
-        <div className="border-b border-border bg-brand-gradient px-6 py-5 text-white">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-2xl overflow-hidden p-0">
+        <div className="border-b border-border bg-brand-gradient px-4 py-4 text-white sm:px-6 sm:py-5">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="font-serif text-xl font-semibold text-white">
               AI Response Mode
@@ -690,7 +721,7 @@ function ResponseModeDialog({
           </DialogHeader>
         </div>
  
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {MODES.map((m) => {
             const active = selected === m.id;
             return (
