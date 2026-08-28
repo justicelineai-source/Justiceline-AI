@@ -113,96 +113,356 @@ const [judgments, setJudgments] = useState<JudgmentRow[]>([]);
   const [count, setCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
- const handleDownloadPdf = async () => {
+const handleDownloadPdf = async () => {
   const element = judgmentDocumentRef.current;
- 
+
   if (!element || !selectedJudgment) {
     alert("Judgment content is not available.");
     return;
   }
- 
-  // Open a new tab immediately so the browser does not block it.
+
+  // Open immediately to prevent browser popup blocking.
   const pdfWindow = window.open("", "_blank");
- 
+
   if (!pdfWindow) {
     alert("Please allow pop-ups for this website.");
     return;
   }
- 
+
+  let container: HTMLDivElement | null = null;
+
   try {
     const fileName = (
       selectedJudgment.CaseNo ||
       `JusticeLine_${selectedJudgment.Keycode || "Judgment"}`
     ).replace(/[^a-z0-9_-]/gi, "_");
- 
-    // Clone the existing judgment template.
+
+    /*
+      =====================================================
+      CREATE PDF-ONLY COPY
+      This does NOT change preview/fullscreen/original page.
+      =====================================================
+    */
+
     const clone = element.cloneNode(true) as HTMLElement;
- 
-    // Remove toolbar from the PDF.
-    const toolbar = clone.querySelector(".pdf-toolbar");
- 
-    if (toolbar) {
-      toolbar.remove();
-    }
- 
- 
-const container = document.createElement("div");
- 
-container.style.position = "fixed";
-container.style.left = "-100000px";
-container.style.top = "0";
-container.style.width = "180mm";
-container.style.backgroundColor = "#ffffff";
- 
-// Keep the PDF copy centered and within the A4 printable area.
-clone.style.backgroundColor = "#ffffff";
-clone.style.color = "#000000";
-clone.style.width = "180mm";
-clone.style.maxWidth = "180mm";
-clone.style.margin = "0 auto";
-clone.style.boxSizing = "border-box";
- 
- 
- // PDF ONLY: force all text to pure black
-const pdfStyle = document.createElement("style");
- 
-pdfStyle.textContent = `
-  *,
-  *::before,
-  *::after {
-    color: #000000 !important;
-  }
- 
-  html,
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
-  }
- 
-  .pdf-document {
-    background: #ffffff !important;
-    color: #000000 !important;
-  }
- 
-  .pdf-main {
-    color: #000000 !important;
-  }
- 
-  .judgment-content {
-    color: #000000 !important;
-  }
- 
-  /* =========================================
-   PDF PAGE BREAK CONTROL
-   ========================================= */
- 
-/* Allow normal paragraphs to flow naturally */
-p {
+
+    // Remove website toolbar from PDF.
+    clone.querySelector(".pdf-toolbar")?.remove();
+
+    /*
+      =====================================================
+      CREATE OFFSCREEN CONTAINER
+      =====================================================
+    */
+
+    container = document.createElement("div");
+
+    container.style.position = "fixed";
+    container.style.left = "-100000px";
+    container.style.top = "0";
+    container.style.width = "210mm";
+    container.style.margin = "0";
+    container.style.padding = "0";
+    container.style.background = "#ffffff";
+    container.style.zIndex = "-1";
+
+    /*
+      =====================================================
+      PDF DOCUMENT SIZE
+      =====================================================
+    */
+
+    clone.style.width = "210mm";
+    clone.style.minHeight = "297mm";
+    clone.style.margin = "0";
+    clone.style.padding = "0";
+    clone.style.background = "#ffffff";
+    clone.style.color = "#1f1a17";
+    clone.style.boxSizing = "border-box";
+
+    /*
+      =====================================================
+      PDF-ONLY PROFESSIONAL STYLE
+      This is applied ONLY to the cloned PDF.
+      =====================================================
+    */
+
+    const pdfStyle = document.createElement("style");
+
+    pdfStyle.textContent = `
+      /* ===================================================
+         RESET
+      =================================================== */
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box !important;
+      }
+
+      html,
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #1f1a17 !important;
+      }
+
+      .pdf-document {
+        width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #1f1a17 !important;
+        font-family: Georgia, "Times New Roman", serif !important;
+      }
+
+      /* ===================================================
+         MAIN DOCUMENT AREA
+      =================================================== */
+
+      .pdf-main {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 14mm 16mm 18mm 16mm !important;
+        background: #ffffff !important;
+        color: #1f1a17 !important;
+      }
+
+      /* ===================================================
+         REMOVE TOOLBAR
+      =================================================== */
+
+      .pdf-toolbar {
+        display: none !important;
+      }
+
+      /* ===================================================
+         TEXT
+      =================================================== */
+
+      .pdf-main,
+      .pdf-main div,
+      .pdf-main p,
+      .pdf-main span,
+      .pdf-main h1,
+      .pdf-main h2,
+      .pdf-main h3,
+      .pdf-main h4,
+      .pdf-main h5,
+      .pdf-main h6,
+      .pdf-main li {
+        color: #1f1a17 !important;
+        font-family: Georgia, "Times New Roman", serif !important;
+      }
+
+      /* ===================================================
+         TOP CASE DETAILS
+      =================================================== */
+
+      .pdf-main > section:first-child {
+        text-align: center !important;
+        margin-bottom: 12mm !important;
+      }
+
+      .pdf-main h1 {
+        font-size: 18pt !important;
+        font-weight: 700 !important;
+        line-height: 1.3 !important;
+        margin: 0 0 5mm 0 !important;
+        text-align: center !important;
+      }
+
+      .pdf-main h2 {
+        font-size: 15pt !important;
+        font-weight: 700 !important;
+        line-height: 1.35 !important;
+        margin: 0 0 5mm 0 !important;
+        text-align: center !important;
+      }
+
+      .pdf-main > section:first-child p {
+        font-size: 10.5pt !important;
+        line-height: 1.55 !important;
+        margin: 2.5mm 0 !important;
+        text-align: center !important;
+      }
+
+  /* ===================================================
+   PROFESSIONAL COMPACT SECTION SPACING
+=================================================== */
+
+.pdf-main section {
+  margin-top: 3.5mm !important;
+  margin-bottom: 0 !important;
+}
+
+/* Case header needs slightly more breathing room */
+.pdf-main > section:first-child {
+  margin-top: 0 !important;
+  margin-bottom: 7mm !important;
+}
+
+/* Act referred */
+.pdf-main section.mt-8 {
+  margin-top: 4mm !important;
+}
+
+/* Judges */
+.pdf-main section.mt-6 {
+  margin-top: 3mm !important;
+}
+
+/* Judgment */
+.pdf-main section.mt-5 {
+  margin-top: 3mm !important;
+}
+
+/* Larger sections only */
+.pdf-main section.mt-10 {
+  margin-top: 5mm !important;
+}
+
+/* Metadata heading */
+.pdf-meta-section {
+  margin-top: 4mm !important;
+}
+
+.pdf-meta-section h3 {
+  margin: 0 0 1.5mm 0 !important;
+}
+
+/* Remove unnecessary gap between rows */
+.pdf-meta-section > div {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.pdf-meta-section > div > div {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+}
+
+/* Compact metadata sections */
+.pdf-meta-section {
+  margin-top: 5mm !important;
+}
+
+.pdf-meta-section h3 {
+  margin-bottom: 2mm !important;
+}
+
+.pdf-meta-section > div {
+  margin-top: 0 !important;
+}
+
+/* Keep Act and Judge rows compact */
+.pdf-meta-section > div > div {
+  margin-top: 0 !important;
+  margin-bottom: 1.5mm !important;
+}
+
+      /* ===================================================
+         SECTION HEADINGS
+      =================================================== */
+
+      .pdf-main h3 {
+        font-size: 12pt !important;
+        font-weight: 700 !important;
+        line-height: 1.4 !important;
+        margin: 0 0 4mm 0 !important;
+      }
+
+      /* ===================================================
+         NORMAL PARAGRAPHS
+      =================================================== */
+
+      .pdf-main p,
+.pdf-main li {
+  font-size: 10.5pt !important;
+  line-height: 1.5 !important;
+  margin: 0 0 2.5mm 0 !important;
+}
+
+      /* ===================================================
+         JUDGMENT CONTENT
+      =================================================== */
+
+      .judgment-content {
+        width: 100% !important;
+        color: #1f1a17 !important;
+        font-family: Georgia, "Times New Roman", serif !important;
+        font-size: 10.5pt !important;
+        line-height: 1.55 !important;
+        text-align: justify !important;
+      }
+
+      .judgment-content p,
+      .judgment-content div,
+      .judgment-content span,
+      .judgment-content li {
+        color: #1f1a17 !important;
+        font-family: Georgia, "Times New Roman", serif !important;
+        font-size: 10.5pt !important;
+        line-height: 1.55 !important;
+        text-align: justify !important;
+      }
+
+ .judgment-content {
   break-inside: auto !important;
   page-break-inside: auto !important;
 }
- 
-/* Headings should stay with the following content */
+
+.judgment-content p {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  orphans: 3;
+  widows: 3;
+}
+
+      /* ===================================================
+         HEADNOTE / ADVOCATES HTML
+      =================================================== */
+
+      .pdf-main section div {
+        color: #1f1a17 !important;
+      }
+
+      /* ===================================================
+         REMOVE RESPONSIVE EFFECTS
+      =================================================== */
+
+      .pdf-main .max-w-5xl,
+      .pdf-main .mx-auto {
+        max-width: none !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+
+      /* ===================================================
+         BORDERS
+      =================================================== */
+
+      .border-t {
+        border-top: 1px solid #d9d1c8 !important;
+      }
+
+      /* ===================================================
+         ACT / JUDGE BADGES
+      =================================================== */
+
+      .rounded-full {
+        border-radius: 50% !important;
+      }
+
+/* ==========================================
+   PROFESSIONAL PDF PAGE BREAK CONTROL
+========================================== */
+
+/* Never leave a heading alone at bottom of page */
 h1,
 h2,
 h3,
@@ -212,240 +472,400 @@ h6 {
   break-after: avoid !important;
   page-break-after: avoid !important;
 }
- 
-/* Small metadata blocks can stay together */
-.pdf-main section > h3 {
-  break-after: avoid !important;
-  page-break-after: avoid !important;
+
+/* Keep Act Referred and Judges rows together */
+.pdf-meta-section > div > div {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
- 
-/* Lists can flow naturally */
-li {
+
+/* Judgment must be allowed to flow between pages */
+.judgment-content {
   break-inside: auto !important;
   page-break-inside: auto !important;
 }
- 
-/* Tables should avoid splitting rows */
+
+/* Do not split a paragraph unless absolutely necessary */
+.judgment-content p {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Keep heading close to the content below */
+.pdf-section-heading,
+.pdf-main h3 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+
+/* Prevent list items from breaking awkwardly */
+li {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Tables */
 table,
 tr {
   break-inside: avoid !important;
   page-break-inside: avoid !important;
 }
- 
-/* Don't force large legal paragraphs to a new page */
+    `;
+
+    clone.prepend(pdfStyle);
+
+    container.appendChild(clone);
+    document.body.appendChild(container);
+
+    /*
+      =====================================================
+      GENERATE PDF
+      =====================================================
+    */
+
+    const pdfBlob = await html2pdf()
+  .set({
+margin: [8, 0, 8, 0],
+        filename: `${fileName}.pdf`,
+
+        image: {
+          type: "jpeg",
+          quality: 0.98,
+        },
+
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+
+          /*
+            IMPORTANT:
+            Remove website styles containing oklch().
+            This affects ONLY html2canvas's cloned document.
+          */
+
+          onclone: (clonedDocument: Document) => {
+            /*
+              Remove all stylesheet links.
+              Tailwind/shadcn modern CSS can contain oklch().
+            */
+
+            clonedDocument
+              .querySelectorAll('link[rel="stylesheet"]')
+              .forEach((link) => link.remove());
+
+            /*
+              Remove all existing style tags that may contain
+              oklch(), oklab(), CSS variables, etc.
+            */
+
+            clonedDocument
+              .querySelectorAll("style")
+              .forEach((style) => style.remove());
+
+            /*
+              Find the PDF document inside html2canvas clone.
+            */
+
+            const pdfDocument = clonedDocument.querySelector(
+              ".pdf-document"
+            ) as HTMLElement | null;
+
+            if (!pdfDocument) return;
+
+            /*
+              Add completely PDF-safe CSS.
+              No oklch(), no Tailwind colors.
+            */
+
+            const safeStyle = clonedDocument.createElement("style");
+
+            safeStyle.textContent = `
+              * {
+                box-sizing: border-box !important;
+              }
+
+              html,
+              body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                color: #1f1a17 !important;
+              }
+
+              .pdf-document {
+                width: 210mm !important;
+                min-height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                color: #1f1a17 !important;
+                font-family: Georgia, "Times New Roman", serif !important;
+              }
+
+              .pdf-toolbar {
+                display: none !important;
+              }
+
+              .pdf-main {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 14mm 16mm 18mm 16mm !important;
+                background: #ffffff !important;
+                color: #1f1a17 !important;
+              }
+
+              .pdf-main,
+              .pdf-main * {
+                color: #1f1a17 !important;
+                font-family: Georgia, "Times New Roman", serif !important;
+              }
+
+              .pdf-main > section:first-child {
+                text-align: center !important;
+                margin-bottom: 12mm !important;
+              }
+
+              h1 {
+                font-size: 18pt !important;
+                font-weight: 700 !important;
+                line-height: 1.3 !important;
+                text-align: center !important;
+                margin: 0 0 5mm 0 !important;
+              }
+
+              h2 {
+                font-size: 15pt !important;
+                font-weight: 700 !important;
+                line-height: 1.35 !important;
+                text-align: center !important;
+                margin: 0 0 5mm 0 !important;
+              }
+
+              h3 {
+                font-size: 12pt !important;
+                font-weight: 700 !important;
+                line-height: 1.4 !important;
+                margin: 0 0 4mm 0 !important;
+              }
+
+              .pdf-main > section:first-child p {
+                font-size: 10.5pt !important;
+                line-height: 1.55 !important;
+                text-align: center !important;
+                margin: 2.5mm 0 !important;
+              }
+
+             /* ==========================================
+   COMPACT PROFESSIONAL SPACING
+========================================== */
+
+.pdf-main section {
+  margin-top: 3.5mm !important;
+  margin-bottom: 0 !important;
+}
+
+.pdf-main > section:first-child {
+  margin-top: 0 !important;
+  margin-bottom: 7mm !important;
+}
+
+.pdf-main section.mt-8 {
+  margin-top: 4mm !important;
+}
+
+.pdf-main section.mt-6 {
+  margin-top: 3mm !important;
+}
+
+.pdf-main section.mt-5 {
+  margin-top: 3mm !important;
+}
+
+.pdf-main section.mt-10 {
+  margin-top: 5mm !important;
+}
+
+.pdf-meta-section h3 {
+  margin: 0 0 1.5mm 0 !important;
+}
+
+.pdf-meta-section > div,
+.pdf-meta-section > div > div {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.judgment-content p {
+  margin: 0 0 1.8mm 0 !important;
+}
+
+              .border-t {
+                border-top: 1px solid #d9d1c8 !important;
+              }
+/* ==========================================
+   PROFESSIONAL PDF PAGE BREAK CONTROL
+========================================== */
+
+/* Keep headings with the content that follows */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+
+/* Keep Act Referred and Judges sections clean */
+.pdf-meta-section {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Never split an Act/Judge row */
+.pdf-meta-section > div > div {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Judgment section can continue onto the next page */
 .judgment-content {
   break-inside: auto !important;
   page-break-inside: auto !important;
 }
- 
-.judgment-content p,
-.judgment-content div {
+
+/* Judgment paragraphs should flow naturally across pages */
+.judgment-content p {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Allow long legal list items to continue naturally */
+.judgment-content li,
+.pdf-main li {
   break-inside: auto !important;
   page-break-inside: auto !important;
 }
- 
-/* Headnote should also flow naturally */
-.pdf-main section p {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
+
+/* Tables and rows should never break awkwardly */
+table,
+tr {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
- 
-/* Toolbar never goes into PDF */
-.pdf-toolbar {
-  display: none !important;
+
+/* Images stay within page width */
+img {
+  max-width: 100% !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
-`;
- 
-clone.prepend(pdfStyle);
- 
-// Remove the extra responsive padding/max-width from the PDF copy.
-const pdfMain = clone.querySelector(".pdf-main") as HTMLElement | null;
- 
-if (pdfMain) {
-  pdfMain.style.width = "100%";
-  pdfMain.style.maxWidth = "none";
-  pdfMain.style.marginLeft = "0";
-  pdfMain.style.marginRight = "0";
-  pdfMain.style.paddingLeft = "0";
-  pdfMain.style.paddingRight = "0";
-  pdfMain.style.boxSizing = "border-box";
-}
- 
-container.appendChild(clone);
-document.body.appendChild(container);
- 
-    // Generate PDF from the same judgment template.
-  const pdfBlob = await html2pdf()
-  .set({
-    margin: [12, 15, 12, 15],
- 
-    filename: `${fileName}.pdf`,
- 
-    image: {
-      type: "jpeg",
-      quality: 0.98,
-    },
- 
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
- 
-      jsPDF: {
-      unit: "mm",
-      format: "a4",
-      orientation: "portrait",
-    },
- 
-   onclone: (clonedDocument: Document) => {
-  /*
-   * PDF SAFE MODE
-   * --------------------------------------------------
-   * html2canvas cannot parse modern oklch() colors.
-   * We remove stylesheet color problems and force
-   * all PDF text to pure black.
-   */
- 
-  // 1. Remove external stylesheet links from the PDF clone.
-  //    The original website is NOT affected.
-  clonedDocument
-    .querySelectorAll('link[rel="stylesheet"]')
-    .forEach((link) => link.remove());
- 
-  // 2. Replace every oklch() found inside style tags.
-  clonedDocument.querySelectorAll("style").forEach((style) => {
-    style.textContent =
-      style.textContent
-        ?.replace(/oklch\([^)]*\)/gi, "#000000")
-        .replace(/color\([^)]*\)/gi, "#000000") ?? "";
-  });
- 
-  // 3. Force PDF text to black.
-  const allElements = clonedDocument.querySelectorAll("*");
- 
-  allElements.forEach((element) => {
-    const htmlElement = element as HTMLElement;
- 
-    htmlElement.style.setProperty(
-      "color",
-      "#000000",
-      "important"
-    );
- 
-    // Convert inline oklch colors if database HTML contains them.
-    const inlineStyle = htmlElement.getAttribute("style");
- 
-    if (inlineStyle && /oklch\(/i.test(inlineStyle)) {
-      htmlElement.setAttribute(
-        "style",
-        inlineStyle.replace(
-          /oklch\([^)]*\)/gi,
-          "#000000"
-        )
-      );
-    }
-  });
- 
-  // 4. Force the main PDF areas to black text.
-  const pdfDocument =
-    clonedDocument.querySelector(".pdf-document");
- 
-  if (pdfDocument) {
-    (pdfDocument as HTMLElement).style.setProperty(
-      "color",
-      "#000000",
-      "important"
-    );
- 
-    (pdfDocument as HTMLElement).style.setProperty(
-      "background-color",
-      "#ffffff",
-      "important"
-    );
-  }
- 
-  const pdfMain =
-    clonedDocument.querySelector(".pdf-main");
- 
-  if (pdfMain) {
-    (pdfMain as HTMLElement).style.setProperty(
-      "color",
-      "#000000",
-      "important"
-    );
-  }
- 
-  // 5. Force judgment HTML to black.
-  const judgmentContent =
-    clonedDocument.querySelector(".judgment-content");
- 
-  if (judgmentContent) {
-    const content =
-      judgmentContent as HTMLElement;
- 
-    content.style.setProperty(
-      "color",
-      "#000000",
-      "important"
-    );
- 
-    content
-      .querySelectorAll("*")
-      .forEach((element) => {
-        (element as HTMLElement).style.setProperty(
-          "color",
-          "#000000",
-          "important"
-        );
-      });
-  }
- 
-  // 6. Force Headnote and Advocates HTML to black.
-  clonedDocument
-    .querySelectorAll(
-      ".judgment-content, .pdf-main div, .pdf-main p, .pdf-main span"
-    )
-    .forEach((element) => {
-      (element as HTMLElement).style.setProperty(
-        "color",
-        "#000000",
-        "important"
-      );
-    });
+            `;
+
+            clonedDocument.head.appendChild(safeStyle);
+
+            /*
+              Remove any inline modern color values.
+            */
+
+            clonedDocument.querySelectorAll("*").forEach((node) => {
+              const htmlElement = node as HTMLElement;
+
+              const inlineStyle =
+                htmlElement.getAttribute("style") || "";
+
+              if (
+                inlineStyle.includes("oklch") ||
+                inlineStyle.includes("oklab")
+              ) {
+                htmlElement.setAttribute(
+                  "style",
+                  inlineStyle
+                    .replace(/oklch\([^)]*\)/gi, "#1f1a17")
+                    .replace(/oklab\([^)]*\)/gi, "#1f1a17")
+                );
+              }
+            });
+          },
+        },
+
+        /*
+          IMPORTANT:
+          jsPDF MUST BE HERE.
+          NOT inside html2canvas.
+        */
+
+        jsPDF: {
+          unit: "mm",
+          format: "a4",
+          orientation: "portrait",
+        },
+
+       pagebreak: {
+  mode: ["css", "legacy"],
+  avoid: [
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    ".pdf-meta-section",
+    ".pdf-meta-section > div > div",
+    "table",
+    "tr",
+  ],
 },
-    },
- 
-   
-  })
-  .from(clone)
-  .outputPdf("blob");
- 
-    // Open generated PDF directly in browser PDF viewer.
+      })
+      .from(clone)
+      .outputPdf("blob");
+
+    /*
+      =====================================================
+      OPEN PDF
+      =====================================================
+    */
+
     const pdfUrl = URL.createObjectURL(pdfBlob);
- 
+
     pdfWindow.location.href = pdfUrl;
- 
-    // Remove temporary container.
-    document.body.removeChild(container);
- 
-    // Release the Blob URL later.
+
+    /*
+      Cleanup
+    */
+
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+      container = null;
+    }
+
     setTimeout(() => {
       URL.revokeObjectURL(pdfUrl);
     }, 60000);
- 
+
   } catch (error) {
     console.error("PDF generation failed:", error);
- 
+
+    if (container && document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+
     pdfWindow.close();
- 
+
     alert(
-      `Unable to generate PDF.\n\n${
+      `Unable to open PDF.\n\n${
         error instanceof Error ? error.message : String(error)
       }`
     );
   }
 };
- 
  
 const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
  
@@ -953,9 +1373,10 @@ finally {
 >
   <DialogContent
     className={
-      isJudgmentFullscreen
+     isJudgmentFullscreen
   ? "h-screen w-screen max-w-none overflow-y-auto rounded-none bg-white p-0"
   : "max-h-[95vh] max-w-6xl overflow-y-auto bg-white p-0"
+ 
     }
   >
          {selectedJudgment && (
@@ -963,109 +1384,62 @@ finally {
   ref={judgmentDocumentRef}
   className="pdf-document min-h-full bg-white text-[#351515]"
 >
-{/* TOP TOOLBAR */}
-<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
- 
-  {/* LEFT — TITLE */}
-  <div className="flex min-w-0 flex-1 items-center">
-    <h2 className="truncate text-xl font-bold text-black">
-      Judgement Details
-    </h2>
-  </div>
- 
-  {/* RIGHT — ACTIONS */}
-  <div className="ml-auto flex shrink-0 items-center gap-2">
- 
-    {/* View button — only fullscreen */}
-    {isJudgmentFullscreen && (
-      <Button
-        type="button"
-        variant="outline"
-        onClick={handleDownloadPdf}
-        className="
-          h-10
-          rounded-full
-          border-slate-200
-          bg-white
-          px-5
-          text-sm
-          font-medium
-          text-black
-          shadow-sm
-          hover:bg-slate-50
-          hover:text-black
-        "
-      >
-        <Printer className="mr-2 h-4 w-4" />
-        <span>View</span>
- 
-     </Button>
-    )}
- 
-    {/* Open / Minimize */}
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() =>
-        setIsJudgmentFullscreen((current) => !current)
-      }
-      className="
-        h-10
-        rounded-full
-        border-slate-300
-        bg-white
-        px-5
-        text-sm
-        font-medium
-        text-black
-        shadow-sm
-        hover:bg-slate-50
-        hover:text-black
-      "
-      title={
-        isJudgmentFullscreen
-          ? "Exit Fullscreen"
-          : "Open Fullscreen"
-      }
-    >
-      {isJudgmentFullscreen ? (
-        <>
-          <Minimize2 className="mr-2 h-4 w-4" />
-          <span>Minimize</span>
-        </>
-      ) : (
-        <>
-          <Maximize2 className="mr-2 h-4 w-4" />
-          <span>Open</span>
-        </>
-      )}
-    </Button>
- 
-    {/* CLOSE */}
+{/* =====================================================
+    TOP TOOLBAR
+====================================================== */}
+<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center justify-end gap-3 border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
+
+  {/* VIEW / PRINT ICON */}
+  {isJudgmentFullscreen && (
     <Button
       type="button"
       variant="ghost"
       size="icon"
-      onClick={() => {
-        setSelectedJudgment(null);
-        setIsJudgmentFullscreen(false);
-      }}
-      className="
-        h-10
-        w-10
-        rounded-full
-        text-black
-        hover:bg-slate-100
-        hover:text-black
-      "
-      title="Close"
+      onClick={handleDownloadPdf}
+      className="h-10 w-10 rounded-full text-[#351515] hover:bg-[#F5EEDC]"
+      title="View"
     >
-      <X className="h-5 w-5" />
+      <Printer className="h-5 w-5" />
     </Button>
- 
- 
-  </div>
+  )}
+
+  {/* FULLSCREEN / MINIMIZE ICON */}
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon"
+    onClick={() => setIsJudgmentFullscreen((current) => !current)}
+    className={`h-10 w-10 rounded-full hover:bg-[#F5EEDC] ${
+      isJudgmentFullscreen
+        ? "text-black hover:text-black"
+        : "text-[#806B5F] hover:text-[#351515]"
+    }`}
+    title={isJudgmentFullscreen ? "Minimize" : "Open"}
+  >
+    {isJudgmentFullscreen ? (
+      <Minimize2 className="h-5 w-5" />
+    ) : (
+      <Maximize2 className="h-5 w-5" />
+    )}
+  </Button>
+
+  {/* CLOSE ICON */}
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon"
+    onClick={() => {
+      setSelectedJudgment(null);
+      setIsJudgmentFullscreen(false);
+    }}
+    className="h-10 w-10 rounded-full text-[#806B5F] hover:bg-[#F5EEDC] hover:text-[#351515]"
+    title="Close"
+  >
+    <X className="h-5 w-5" />
+  </Button>
+
 </div>
+
  
  
     {/* =====================================================
@@ -1079,23 +1453,23 @@ finally {
           <section className="text-center">
  
           {selectedJudgment.Keycode && (
-  <h1 className="text-xl font-bold text-[#351515]">
-    {new Date(selectedJudgment.Date ?? "").getFullYear()} JusticeLine {selectedJudgment.Keycode}
-  </h1>
+  <h2 className="text-base font-bold text-[#351515]">
+    {new Date(selectedJudgment.Date ?? "").getFullYear()} JusticeLine{" "}
+    {selectedJudgment.Keycode}
+  </h2>
 )}
- 
-            {/* COURT */}
-            <h2 className="mt-3 text-xl font-bold uppercase text-[#351515]">
-              {selectedJudgment.COURT ?? "COURT"}
-            </h2>
+
+<h1 className="mt-3 text-2xl font-bold uppercase text-[#351515]">
+  {selectedJudgment.COURT ?? "COURT"}
+</h1>
  
             {/* APPELLANT */}
-            <p className="mt-4 text-lg font-bold leading-7 text-black">
-  {selectedJudgment.Appellant ?? "Appellant"}
-  <span className="font-normal text-black">
-    {" "}– Appellants
-  </span>
-</p>
+            <p className="mt-4 text-lg font-bold leading-7 text-[#351515]">
+              {selectedJudgment.Appellant ?? "Appellant"}
+              <span className="font-normal text-[#806B5F]">
+                {" "}– Appellants
+              </span>
+            </p>
  
             {/* VERSUS */}
             <p className="my-2 text-lg font-bold text-[#351515]">
@@ -1103,114 +1477,128 @@ finally {
             </p>
  
             {/* RESPONDENT */}
-           <p className="text-lg font-bold leading-7 text-black">
-  {selectedJudgment.Respondent ?? "Respondent"}
-  <span className="font-normal text-black">
-    {" "}– Respondents
-  </span>
-</p>
+            <p className="text-lg font-bold leading-7 text-[#351515]">
+              {selectedJudgment.Respondent ?? "Respondent"}
+              <span className="font-normal text-[#806B5F]">
+                {" "}– Respondents
+              </span>
+            </p>
  
             {/* CASE NUMBER */}
-            <p className="mt-4 text-base text-black">
-  {selectedJudgment.CaseNo ?? "Case number unavailable"}
-</p>
+            <p className="mt-4 text-base text-[#806B5F]">
+              {selectedJudgment.CaseNo ?? "Case number unavailable"}
+            </p>
  
             {/* DATE */}
-            <p className="mt-2 text-base text-black">
-  <span className="font-medium text-black">
-    Decided On :
-  </span>{" "}
-  {formatDate(selectedJudgment.Date)}
-</p>
- 
+            <p className="mt-2 text-base text-[#806B5F]">
+              <span className="font-medium text-[#351515]">
+                Decided On :
+              </span>{" "}
+              {formatDate(selectedJudgment.Date)}
+            </p>
           </section>
  
      
  
-          {/* =================================================
-              ACTS REFERRED
-          ================================================== */}
-          <section className="mt-8">
-            <h3 className="mb-4 text-base font-bold text-[#351515]">
-              Act Referred :
-            </h3>
+{/* =================================================
+    ACT REFERRED
+================================================== */}
+<section className="pdf-meta-section mt-6">
+  <h3 className="mb-1 text-base font-bold text-[#351515]">
+    Act Referred :
+  </h3>
+
+  <div className="space-y-1">
+    {selectedJudgment.Actreferred ? (
+      selectedJudgment.Actreferred
+        .split(/\r?\n/)
+        .map((act) => act.trim())
+        .filter(
+          (act) =>
+            act.length > 0 &&
+            !/^[.\-–—]+$/.test(act)
+        )
+        .map((act, index) => (
+          <div
+            key={`${act}-${index}`}
+            className="flex items-baseline gap-2"
+            style={{
+              breakInside: "avoid",
+              pageBreakInside: "avoid",
+            }}
+          >
+            <span
+              className="shrink-0 font-semibold text-[#351515]"
+              style={{
+                width: "22px",
+                display: "inline-block",
+              }}
+            >
+              {index + 1}.
+            </span>
+
+            <span className="text-base leading-6 text-[#351515]">
+              {act.replace(/^\s*\d+[\.\)]\s*/, "")}
+            </span>
+          </div>
+        ))
+    ) : (
+      <p className="text-[#806B5F]">
+        No acts referred.
+      </p>
+    )}
+  </div>
+</section>
  
-            <div className="space-y-3">
-              {selectedJudgment.Actreferred ? (
-                selectedJudgment.Actreferred
-                  .split(/\r?\n/)
-                  .filter(Boolean)
-                  .map((act, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3"
-                    >
-                    <div className="flex items-start gap-4 py-2">
-  <span className="w-0 shrink-0 text-base font-semibold text-black">
-    {index + 1}.
-  </span>
- 
-  <span className="flex-1 text-[15px] leading-7 text-gray-900">
-    {judge.trim()}
-  </span>
-</div>
- 
-                      <p className="pt-1 text-base leading-7 text-black">
-                        {act.replace(
-                          /^\s*\d+[\.\)]\s*/,
-                          ""
-                        )}
-                      </p>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-[#806B5F]">
-                  No acts referred.
-                </p>
-              )}
-            </div>
-          </section>
- 
-          {/* =================================================
-              JUDGES
-          ================================================== */}
-          <section className="mt-8">
-            <h3 className="mb-4 text-base font-bold text-[#351515]">
-              Judges :
-            </h3>
- 
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
-              {selectedJudgment.Judges ? (
-                selectedJudgment.Judges
-                  .split(/[,;\n]+/)
-                  .map((judge, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3"
-                    >
-                      <div className="flex items-start gap-4 py-2">
-  <span className="w-1 shrink-0 text-base font-semibold text-black">
-    {index + 1}.
-  </span>
- 
-  <span className="flex-1 text-[15px] leading-7 text-gray-900">
-    {judge.trim()}
-  </span>
-</div>
- 
-                      <span className="text-base text-black">
-                        {judge.trim()}
-                      </span>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-[#806B5F]">
-                  No judges available.
-                </p>
-              )}
-            </div>
-          </section>
- 
+         {/* =================================================
+    JUDGES
+================================================== */}
+<section className="pdf-meta-section mt-6">
+  <h3 className="mb-2 text-base font-bold text-[#351515]">
+    Judges :
+  </h3>
+
+  <div className="space-y-1">
+    {selectedJudgment.Judges ? (
+      selectedJudgment.Judges
+        .split(/[,;\n]+/)
+        .map((judge) => judge.trim())
+        .filter(
+          (judge) =>
+            judge.length > 0 &&
+            !/^[.\-–—]+$/.test(judge)
+        )
+        .map((judge, index) => (
+          <div
+            key={`${judge}-${index}`}
+            className="flex items-baseline gap-2"
+            style={{
+              breakInside: "avoid",
+              pageBreakInside: "avoid",
+            }}
+          >
+            <span
+              className="shrink-0 font-semibold text-[#351515]"
+              style={{
+                width: "22px",
+                display: "inline-block",
+              }}
+            >
+              {index + 1}.
+            </span>
+
+            <span className="leading-6 text-[#351515]">
+              {judge.replace(/^\s*\d+[\.\)]\s*/, "")}
+            </span>
+          </div>
+        ))
+    ) : (
+      <p className="text-[#806B5F]">
+        No judges available.
+      </p>
+    )}
+  </div>
+</section>
           {/* =================================================
               ADVOCATES
           ================================================== */}
@@ -1235,7 +1623,7 @@ finally {
 {(selectedJudgment.Headnote ||
   selectedJudgment.HNote) && (
   <section className="mt-10 border-t border-[#E4DCD2] pt-8">
-<h3 className="mb-4 text-lg font-bold text-black">
+<h3 className="mb-4 text-lg font-bold text-[#351515]">
   Headnote
 </h3>
  
@@ -1257,10 +1645,10 @@ finally {
           {/* =================================================
               FULL JUDGMENT
           ================================================== */}
-          <section className="mt-5 border-t border-[#E4DCD2] pt-5">
-            <h3 className="mb-6 text-lg font-bold text-[#351515]">
-              Judgment
-            </h3>
+        <section className="mt-4 border-t border-[#E4DCD2] pt-3">
+  <h3 className="mb-1.5 text-lg font-bold text-[#351515]">
+    Judgment
+  </h3>
  
             <div
               className="
@@ -1302,7 +1690,6 @@ finally {
     </>
   );
 }
- 
  
  
  

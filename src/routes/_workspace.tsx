@@ -2,7 +2,7 @@ import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
 import { useEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { FloatingAssistant } from "@/components/assistant/FloatingAssistant";
+
 
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { MobileSidebar } from "@/components/mobile/MobileSidebar";
@@ -81,50 +81,38 @@ function WorkspaceLayout() {
     );
   }
 
-  return (
+   return (
     <>
-      {/* =====================================================
-          MOBILE: below 768px
-          ===================================================== */}
+      {/* MOBILE */}
       <div className="block min-h-screen w-full bg-background md:hidden">
-  
-  <MobileHeader
-    onMenuClick={() => setMobileMenuOpen(true)}
-  />
+        <MobileHeader
+          onMenuClick={() => setMobileMenuOpen(true)}
+        />
 
-  <MobileSidebar
-    open={mobileMenuOpen}
-    onOpenChange={setMobileMenuOpen}
-  />
+        <MobileSidebar
+          open={mobileMenuOpen}
+          onOpenChange={setMobileMenuOpen}
+        />
 
-  <main className="min-h-[calc(100vh-64px)] min-w-0">
-    <Outlet />
-  </main>
-</div>
+        <main className="min-h-[calc(100vh-64px)] min-w-0">
+          <Outlet />
+        </main>
+      </div>
 
-      {/* =====================================================
-          TABLET: 768px to 1023px
-          ===================================================== */}
+      {/* TABLET */}
       <div className="hidden md:block lg:hidden">
         <TabletLayout>
           <Outlet />
         </TabletLayout>
       </div>
 
-      {/* =====================================================
-          DESKTOP: 1024px and above
-          ===================================================== */}
+      {/* DESKTOP */}
       <div className="hidden min-h-screen w-full bg-background lg:flex">
         <AppSidebar />
 
-        <main className="ml-64 flex min-w-0 flex-1 flex-col">
+        <div className="ml-64 flex min-w-0 flex-1 flex-col">
           <Outlet />
-        </main>
-      </div>
-
-      {/* Floating assistant for all layouts */}
-      <div className="no-print">
-        <FloatingAssistant />
+        </div>
       </div>
     </>
   );

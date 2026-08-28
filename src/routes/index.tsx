@@ -332,8 +332,8 @@ function FeatureShowcase() {
         />
       </div>
  
-<div className="grid items-center gap-14 lg:grid-cols-[420px_minmax(620px,1fr)]">        {/* LEFT — content card */}
-<div className="max-w-[380px]">  
+<div className="grid min-w-0 items-center gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-14">        {/* LEFT — content card */}
+<div className="min-w-0 w-full max-w-[380px]">
  
             <AnimatePresence mode="wait">
               <motion.div
@@ -349,10 +349,10 @@ className="flex h-full flex-col justify-center px-1 py-1"              >
                 <div className="mt-5 text-xs font-semibold uppercase tracking-[0.25em] text-gold">
                   {slide.eyebrow}
                 </div>
-                <h3 className="mt-2 font-serif text-[54px] leading-[1.08] font-semibold tracking-[-0.02em] text-foreground">
+                <h3 className="mt-2 font-serif text-4xl leading-[1.08] font-semibold tracking-[-0.02em] text-foreground sm:text-[46px] lg:text-[54px]">
                   {slide.title}
                 </h3>
-                <p className="mt-4 text-[15px] leading-8 text-muted-foreground max-w-[360px]">
+                <p className="mt-4 w-full max-w-[360px] text-[15px] leading-7 text-muted-foreground sm:leading-8">
                   {slide.description}
                 </p>
                 <div className="mt-6">
@@ -370,17 +370,16 @@ className="flex h-full flex-col justify-center px-1 py-1"              >
         </div>
  
         {/* RIGHT — preview card */}
-        <div className="pt-10">
+        <div className="min-w-0 w-full pt-2 lg:pt-10">
        <motion.div
   animate={{ y: [-4, 0, -4] }}
   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-className="group relative h-[430px] w-[610px] overflow-hidden rounded-[32px] border border-border bg-card shadow-[0_40px_100px_rgba(0,0,0,0.18)] transition-shadow duration-300 hover:shadow-[0_30px_80px_rgba(0,0,0,0.22)]">
+className="group relative aspect-[16/10] w-full max-w-[610px] overflow-hidden rounded-[24px] border border-border bg-card shadow-[0_40px_100px_rgba(0,0,0,0.18)] transition-shadow duration-300 hover:shadow-[0_30px_80px_rgba(0,0,0,0.22)] sm:rounded-[28px] lg:h-[430px] lg:aspect-auto lg:rounded-[32px]">
  
  
   {/* Screenshot */}
  
-  <div className="relative h-full w-full overflow-hidden rounded-[32px]">
- 
+<div className="relative h-full w-full min-w-0 overflow-hidden rounded-[24px] sm:rounded-[28px] lg:rounded-[32px]">
       <AnimatePresence mode="wait">
  
           <motion.img
@@ -394,8 +393,7 @@ className="group relative h-[430px] w-[610px] overflow-hidden rounded-[32px] bor
   animate={{ opacity: 1, scale: 1 }}
   exit={{ opacity: 0, scale: 0.98 }}
   transition={{ duration: 0.7, ease: "easeInOut" }}
-  className="absolute inset-0 h-full w-full object-contain object-top transition-transform duration-300 group-hover:scale-[1.02]"
-          />
+className="absolute inset-0 h-full w-full object-contain object-top transition-transform duration-300 group-hover:scale-[1.02]"          />
  
       </AnimatePresence>
  
@@ -407,8 +405,7 @@ className="group relative h-[430px] w-[610px] overflow-hidden rounded-[32px] bor
       </div>
  
       {/* Pagination dots */}
-      <div className="mt-6 flex items-center justify-center gap-2">
-        {SLIDES.map((s, i) => {
+        <div className="mt-4 flex items-center justify-center gap-2 sm:mt-6">        {SLIDES.map((s, i) => {
           const active = i === index;
           return (
             <button
@@ -432,4 +429,5 @@ className="group relative h-[430px] w-[610px] overflow-hidden rounded-[32px] bor
     </div>
   );
 }
+ 
  

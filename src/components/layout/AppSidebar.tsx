@@ -14,7 +14,7 @@ import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { displayName, initialsFor } from "@/lib/db/profiles";
-
+ 
 const items = [
   { title: "Dashboard", to: "/dashboard" as const, icon: LayoutDashboard },
   { title: "AI Chat", to: "/chat" as const, icon: MessageCircle },
@@ -25,15 +25,15 @@ const items = [
   { title: "Profile", to: "/profile" as const, icon: User },
   { title: "Settings", to: "/settings" as const, icon: Settings },
 ];
-
+ 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useAuth();
-
+ 
 const name = displayName(profile) || "JusticeLine User";
 const initials = initialsFor(profile);
   const { signOut } = useAuth();
-
+ 
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex h-16 items-center border-b border-sidebar-border px-5">
@@ -45,9 +45,12 @@ const initials = initialsFor(profile);
   </Link>
 </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/50">
-          Workspace
-        </div>
+<div
+  className="px-4 pb-4 pt-2 text-[11px] uppercase tracking-[0.16em] text-sidebar-foreground/80"
+  style={{ fontWeight: 900 }}
+>
+  Workspace
+</div>
         {items.map((item) => {
           const active =
             item.to === "/dashboard"
@@ -58,7 +61,7 @@ const initials = initialsFor(profile);
               key={item.to}
               to={item.to}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold transition-colors",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                   : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
@@ -77,7 +80,7 @@ const initials = initialsFor(profile);
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="truncate text-sm font-bold">{name}</p>
             <p className="truncate text-xs text-sidebar-foreground/60">Verified User</p>
           </div>
         </div>
@@ -86,12 +89,13 @@ const initials = initialsFor(profile);
     await signOut();
     window.location.href = "/";
   }}
-  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
->
-  <LogOut className="h-4 w-4" />
+className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground">
+    <LogOut className="h-4 w-4" />
   Logout
 </button>
       </div>
     </aside>
   );
 }
+ 
+ 
