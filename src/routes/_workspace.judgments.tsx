@@ -115,48 +115,48 @@ const [judgments, setJudgments] = useState<JudgmentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 const handleDownloadPdf = async () => {
   const element = judgmentDocumentRef.current;
-
+ 
   if (!element || !selectedJudgment) {
     alert("Judgment content is not available.");
     return;
   }
-
+ 
   // Open immediately to prevent browser popup blocking.
   const pdfWindow = window.open("", "_blank");
-
+ 
   if (!pdfWindow) {
     alert("Please allow pop-ups for this website.");
     return;
   }
-
+ 
   let container: HTMLDivElement | null = null;
-
+ 
   try {
     const fileName = (
       selectedJudgment.CaseNo ||
       `JusticeLine_${selectedJudgment.Keycode || "Judgment"}`
     ).replace(/[^a-z0-9_-]/gi, "_");
-
+ 
     /*
       =====================================================
       CREATE PDF-ONLY COPY
       This does NOT change preview/fullscreen/original page.
       =====================================================
     */
-
+ 
     const clone = element.cloneNode(true) as HTMLElement;
-
+ 
     // Remove website toolbar from PDF.
     clone.querySelector(".pdf-toolbar")?.remove();
-
+ 
     /*
       =====================================================
       CREATE OFFSCREEN CONTAINER
       =====================================================
     */
-
+ 
     container = document.createElement("div");
-
+ 
     container.style.position = "fixed";
     container.style.left = "-100000px";
     container.style.top = "0";
@@ -165,13 +165,13 @@ const handleDownloadPdf = async () => {
     container.style.padding = "0";
     container.style.background = "#ffffff";
     container.style.zIndex = "-1";
-
+ 
     /*
       =====================================================
       PDF DOCUMENT SIZE
       =====================================================
     */
-
+ 
     clone.style.width = "210mm";
     clone.style.minHeight = "297mm";
     clone.style.margin = "0";
@@ -179,414 +179,591 @@ const handleDownloadPdf = async () => {
     clone.style.background = "#ffffff";
     clone.style.color = "#1f1a17";
     clone.style.boxSizing = "border-box";
-
+ 
     /*
       =====================================================
       PDF-ONLY PROFESSIONAL STYLE
       This is applied ONLY to the cloned PDF.
       =====================================================
     */
-
+ 
     const pdfStyle = document.createElement("style");
+ 
+  pdfStyle.textContent = `
+  /* =========================================================
+     JUSTICELINE REFERENCE PDF LAYOUT
+     Based on Safari_4264.pdf
+     PDF GENERATION ONLY
+  ========================================================= */
 
-    pdfStyle.textContent = `
-      /* ===================================================
-         RESET
-      =================================================== */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box !important;
+  }
 
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box !important;
-      }
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #222222 !important;
+  }
 
-      html,
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        color: #1f1a17 !important;
-      }
+  /* =========================================================
+     DOCUMENT
+  ========================================================= */
 
-      .pdf-document {
-        width: 210mm !important;
-        min-height: 297mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        color: #1f1a17 !important;
-        font-family: Georgia, "Times New Roman", serif !important;
-      }
+  .pdf-document {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #222222 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+  }
 
-      /* ===================================================
-         MAIN DOCUMENT AREA
-      =================================================== */
+  /* =========================================================
+     MAIN PAGE AREA
+     Similar wide margins to reference PDF
+  ========================================================= */
 
-      .pdf-main {
-        width: 100% !important;
-        max-width: none !important;
-        margin: 0 !important;
-        padding: 14mm 16mm 18mm 16mm !important;
-        background: #ffffff !important;
-        color: #1f1a17 !important;
-      }
+  .pdf-main {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
 
-      /* ===================================================
-         REMOVE TOOLBAR
-      =================================================== */
+    padding:
+      14mm
+      18mm
+      20mm
+      18mm !important;
 
-      .pdf-toolbar {
-        display: none !important;
-      }
+    background: #ffffff !important;
+    color: #222222 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+  }
 
-      /* ===================================================
-         TEXT
-      =================================================== */
+  /* =========================================================
+     HIDE WEBSITE TOOLBAR
+  ========================================================= */
 
-      .pdf-main,
-      .pdf-main div,
-      .pdf-main p,
-      .pdf-main span,
-      .pdf-main h1,
-      .pdf-main h2,
-      .pdf-main h3,
-      .pdf-main h4,
-      .pdf-main h5,
-      .pdf-main h6,
-      .pdf-main li {
-        color: #1f1a17 !important;
-        font-family: Georgia, "Times New Roman", serif !important;
-      }
+  .pdf-toolbar {
+    display: none !important;
+  }
 
-      /* ===================================================
-         TOP CASE DETAILS
-      =================================================== */
+  /* =========================================================
+     GLOBAL FONT
+  ========================================================= */
 
-      .pdf-main > section:first-child {
-        text-align: center !important;
-        margin-bottom: 12mm !important;
-      }
+  .pdf-main,
+  .pdf-main div,
+  .pdf-main p,
+  .pdf-main span,
+  .pdf-main li,
+  .pdf-main h1,
+  .pdf-main h2,
+  .pdf-main h3,
+  .pdf-main h4,
+  .pdf-main h5,
+  .pdf-main h6 {
+    color: #222222 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+  }
 
-      .pdf-main h1 {
-        font-size: 18pt !important;
-        font-weight: 700 !important;
-        line-height: 1.3 !important;
-        margin: 0 0 5mm 0 !important;
-        text-align: center !important;
-      }
+  /* =========================================================
+     HEADER AREA
+     JusticeLine-style header if these elements exist
+  ========================================================= */
 
-      .pdf-main h2 {
-        font-size: 15pt !important;
-        font-weight: 700 !important;
-        line-height: 1.35 !important;
-        margin: 0 0 5mm 0 !important;
-        text-align: center !important;
-      }
+  .pdf-header {
+    width: 100% !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
 
-      .pdf-main > section:first-child p {
-        font-size: 10.5pt !important;
-        line-height: 1.55 !important;
-        margin: 2.5mm 0 !important;
-        text-align: center !important;
-      }
+    margin: 0 0 5mm 0 !important;
+    padding: 0 0 4mm 0 !important;
 
-  /* ===================================================
-   PROFESSIONAL COMPACT SECTION SPACING
-=================================================== */
+    border-bottom: 1px solid #8d8d8d !important;
 
-.pdf-main section {
-  margin-top: 3.5mm !important;
-  margin-bottom: 0 !important;
-}
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
 
-/* Case header needs slightly more breathing room */
-.pdf-main > section:first-child {
-  margin-top: 0 !important;
-  margin-bottom: 7mm !important;
-}
+  .pdf-header-logo {
+    max-width: 62mm !important;
+    height: auto !important;
+  }
 
-/* Act referred */
-.pdf-main section.mt-8 {
-  margin-top: 4mm !important;
-}
+  .pdf-license {
+    font-size: 9.5pt !important;
+    line-height: 1.3 !important;
+    text-align: right !important;
+    padding-top: 1mm !important;
+  }
 
-/* Judges */
-.pdf-main section.mt-6 {
-  margin-top: 3mm !important;
-}
+  /* =========================================================
+     CASE HEADER
+  ========================================================= */
 
-/* Judgment */
-.pdf-main section.mt-5 {
-  margin-top: 3mm !important;
-}
+  .pdf-main > section:first-child {
+    width: 100% !important;
 
-/* Larger sections only */
-.pdf-main section.mt-10 {
-  margin-top: 5mm !important;
-}
+    margin: 0 0 7mm 0 !important;
+    padding: 0 !important;
 
-/* Metadata heading */
-.pdf-meta-section {
-  margin-top: 4mm !important;
-}
+    text-align: center !important;
 
-.pdf-meta-section h3 {
-  margin: 0 0 1.5mm 0 !important;
-}
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
 
-/* Remove unnecessary gap between rows */
-.pdf-meta-section > div {
-  margin: 0 !important;
-  padding: 0 !important;
-}
+  /* Citation number */
 
-.pdf-meta-section > div > div {
-  margin: 0 !important;
-  padding: 0 !important;
-  min-height: 0 !important;
-}
+  .pdf-main h1 {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
 
-/* Compact metadata sections */
-.pdf-meta-section {
-  margin-top: 5mm !important;
-}
+    margin: 0 0 4mm 0 !important;
+    padding: 0 !important;
 
-.pdf-meta-section h3 {
-  margin-bottom: 2mm !important;
-}
+    text-align: center !important;
 
-.pdf-meta-section > div {
-  margin-top: 0 !important;
-}
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
 
-/* Keep Act and Judge rows compact */
-.pdf-meta-section > div > div {
-  margin-top: 0 !important;
-  margin-bottom: 1.5mm !important;
-}
+  /* Court name */
 
-      /* ===================================================
-         SECTION HEADINGS
-      =================================================== */
+  .pdf-main h2 {
+    font-size: 14pt !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
 
-      .pdf-main h3 {
-        font-size: 12pt !important;
-        font-weight: 700 !important;
-        line-height: 1.4 !important;
-        margin: 0 0 4mm 0 !important;
-      }
+    margin: 0 0 4mm 0 !important;
+    padding: 0 !important;
 
-      /* ===================================================
-         NORMAL PARAGRAPHS
-      =================================================== */
+    text-align: center !important;
 
-      .pdf-main p,
-.pdf-main li {
-  font-size: 10.5pt !important;
-  line-height: 1.5 !important;
-  margin: 0 0 2.5mm 0 !important;
-}
+    text-transform: uppercase !important;
 
-      /* ===================================================
-         JUDGMENT CONTENT
-      =================================================== */
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
 
-      .judgment-content {
-        width: 100% !important;
-        color: #1f1a17 !important;
-        font-family: Georgia, "Times New Roman", serif !important;
-        font-size: 10.5pt !important;
-        line-height: 1.55 !important;
-        text-align: justify !important;
-      }
+  /* Equivalent citation / bench / parties / case details */
 
-      .judgment-content p,
-      .judgment-content div,
-      .judgment-content span,
-      .judgment-content li {
-        color: #1f1a17 !important;
-        font-family: Georgia, "Times New Roman", serif !important;
-        font-size: 10.5pt !important;
-        line-height: 1.55 !important;
-        text-align: justify !important;
-      }
+  .pdf-main > section:first-child p {
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
 
- .judgment-content {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-}
+    margin: 2mm 0 !important;
+    padding: 0 !important;
 
-.judgment-content p {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  orphans: 3;
-  widows: 3;
-}
+    text-align: center !important;
+  }
 
-      /* ===================================================
-         HEADNOTE / ADVOCATES HTML
-      =================================================== */
+  /* =========================================================
+     CASE TITLE
+  ========================================================= */
 
-      .pdf-main section div {
-        color: #1f1a17 !important;
-      }
+  .pdf-main .case-title,
+  .pdf-main .party-title {
+    font-size: 15pt !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
 
-      /* ===================================================
-         REMOVE RESPONSIVE EFFECTS
-      =================================================== */
+    margin: 5mm 0 5mm 0 !important;
 
-      .pdf-main .max-w-5xl,
-      .pdf-main .mx-auto {
-        max-width: none !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-      }
+    text-align: center !important;
 
-      /* ===================================================
-         BORDERS
-      =================================================== */
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
 
-      .border-t {
-        border-top: 1px solid #d9d1c8 !important;
-      }
+  /* =========================================================
+     GENERAL SECTIONS
+  ========================================================= */
 
-      /* ===================================================
-         ACT / JUDGE BADGES
-      =================================================== */
+  .pdf-main section {
+    width: 100% !important;
 
-      .rounded-full {
-        border-radius: 50% !important;
-      }
+    margin-bottom: 0 !important;
 
-/* ==========================================
-   PROFESSIONAL PDF PAGE BREAK CONTROL
-========================================== */
+    /*
+      Let long sections flow naturally.
+      This prevents large blank spaces.
+    */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
 
-/* Never leave a heading alone at bottom of page */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  break-after: avoid !important;
-  page-break-after: avoid !important;
-}
+  .pdf-main section.mt-5 {
+    margin-top: 5mm !important;
+  }
 
-/* Keep Act Referred and Judges rows together */
-.pdf-meta-section > div > div {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
+  .pdf-main section.mt-8 {
+    margin-top: 6mm !important;
+  }
 
-/* Judgment must be allowed to flow between pages */
-.judgment-content {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-}
+  .pdf-main section.mt-10 {
+    margin-top: 7mm !important;
+  }
 
-/* Do not split a paragraph unless absolutely necessary */
-.judgment-content p {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  orphans: 3;
-  widows: 3;
-}
+  /* =========================================================
+     SMALL METADATA BLOCKS
+  ========================================================= */
 
-/* Keep heading close to the content below */
-.pdf-section-heading,
-.pdf-main h3 {
-  break-after: avoid !important;
-  page-break-after: avoid !important;
-}
+  .pdf-main .acts-section,
+  .pdf-main .judges-section,
+  .pdf-main .cases-cited-section,
+  .pdf-main .advocates-section {
+    margin-top: 5mm !important;
+    margin-bottom: 0 !important;
 
-/* Prevent list items from breaking awkwardly */
-li {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
 
-/* Tables */
-table,
-tr {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
-    `;
+  /* =========================================================
+     SECTION HEADINGS
+  ========================================================= */
 
+  .pdf-main h3 {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+
+    margin: 0 0 3mm 0 !important;
+    padding: 0 !important;
+
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* =========================================================
+     NORMAL CONTENT
+  ========================================================= */
+
+  .pdf-main p,
+  .pdf-main li {
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+
+    margin: 0 0 3mm 0 !important;
+    padding: 0 !important;
+
+    text-align: left !important;
+
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+
+    orphans: 2 !important;
+    widows: 2 !important;
+  }
+
+  /* =========================================================
+     HEADNOTE
+  ========================================================= */
+
+  .pdf-main .headnote-section {
+    margin-top: 5mm !important;
+
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .pdf-main .headnote-section h3 {
+    margin-bottom: 3mm !important;
+  }
+
+  .pdf-main .headnote-section p,
+  .pdf-main .headnote-section div,
+  .pdf-main .headnote-section span {
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+  }
+
+  /* =========================================================
+     JUDGMENT SECTION
+     
+     IMPORTANT:
+     NO FORCED NEW PAGE.
+     Reference PDF starts Judgment on Page 1.
+  ========================================================= */
+
+  .pdf-main .judgment-section {
+    width: 100% !important;
+
+    margin-top: 6mm !important;
+    padding-top: 4mm !important;
+
+    /*
+      Remove any previous forced page break.
+    */
+    break-before: auto !important;
+    page-break-before: auto !important;
+
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* =========================================================
+     JUDGMENT HEADING
+  ========================================================= */
+
+  .pdf-main .judgment-section h3 {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+
+    margin: 0 0 4mm 0 !important;
+    padding: 0 !important;
+
+    text-transform: uppercase !important;
+
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* =========================================================
+     JUDGE / AUTHOR LINE
+     Example: Dr. Neela Kedar Gokhale, J.: --
+  ========================================================= */
+
+  .pdf-main .judgment-author {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    font-style: italic !important;
+
+    line-height: 1.4 !important;
+
+    margin: 0 0 4mm 0 !important;
+
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* =========================================================
+     JUDGMENT CONTENT
+  ========================================================= */
+
+  .pdf-main .judgment-content {
+    display: block !important;
+
+    width: 100% !important;
+
+    margin: 0 0 4mm 0 !important;
+    break-inside: avoid !important
+    page-break-inside: avoid !important;
+    orphans: 3 !important;
+    windows: 3 !important;
+  }
+    
+
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+
+    color: #222222 !important;
+
+    /*
+      Reference PDF uses justified legal text.
+    */
+    text-align: justify !important;
+
+    break-before: auto !important;
+    break-after: auto !important;
+    break-inside: auto !important;
+
+    page-break-before: auto !important;
+    page-break-after: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* =========================================================
+     JUDGMENT PARAGRAPHS
+  ========================================================= */
+
+  .pdf-main .judgment-content p {
+    display: block !important;
+
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+
+    color: #222222 !important;
+
+    text-align: justify !important;
+
+    margin: 0 0 3.5mm 0 !important;
+    padding: 0 !important;
+
+    /*
+      Paragraphs flow naturally from one page
+      to the next without forcing blank areas.
+    */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+
+    orphans: 2 !important;
+    widows: 2 !important;
+  }
+
+  /* =========================================================
+     REMOVE EXTRA SPACE FROM FIRST/LAST PARAGRAPH
+  ========================================================= */
+
+  .pdf-main .judgment-content p:first-child {
+    margin-top: 0 !important;
+  }
+
+  .pdf-main .judgment-content p:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  /* =========================================================
+     QUOTED LAW / BLOCK CONTENT
+  ========================================================= */
+
+  .pdf-main blockquote {
+    margin: 3mm 5mm !important;
+    padding: 0 !important;
+
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+
+    text-align: justify !important;
+
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* =========================================================
+     BORDERS
+  ========================================================= */
+
+  .pdf-main .border-t {
+    border-top: 1px solid #c8c8c8 !important;
+  }
+
+  /* =========================================================
+     TABLES
+  ========================================================= */
+
+  .pdf-main table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .pdf-main tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* =========================================================
+     IMAGES
+  ========================================================= */
+
+  .pdf-main img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* =========================================================
+     REMOVE WEBSITE WIDTH RESTRICTIONS
+  ========================================================= */
+
+  .pdf-main .max-w-5xl,
+  .pdf-main .max-w-4xl,
+  .pdf-main .max-w-3xl,
+  .pdf-main .mx-auto {
+    max-width: none !important;
+
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+`;
+ 
     clone.prepend(pdfStyle);
-
+ 
     container.appendChild(clone);
     document.body.appendChild(container);
-
+ 
     /*
       =====================================================
       GENERATE PDF
       =====================================================
     */
-
+ 
     const pdfBlob = await html2pdf()
-  .set({
-margin: [8, 0, 8, 0],
+      .set({
+        margin: 0,
+ 
         filename: `${fileName}.pdf`,
-
+ 
         image: {
           type: "jpeg",
           quality: 0.98,
         },
-
+ 
         html2canvas: {
           scale: 2,
           useCORS: true,
           backgroundColor: "#ffffff",
-
+ 
           /*
             IMPORTANT:
             Remove website styles containing oklch().
             This affects ONLY html2canvas's cloned document.
           */
-
+ 
           onclone: (clonedDocument: Document) => {
             /*
               Remove all stylesheet links.
               Tailwind/shadcn modern CSS can contain oklch().
             */
-
+ 
             clonedDocument
               .querySelectorAll('link[rel="stylesheet"]')
               .forEach((link) => link.remove());
-
+ 
             /*
               Remove all existing style tags that may contain
               oklch(), oklab(), CSS variables, etc.
             */
-
+ 
             clonedDocument
               .querySelectorAll("style")
               .forEach((style) => style.remove());
-
+ 
             /*
               Find the PDF document inside html2canvas clone.
             */
-
+ 
             const pdfDocument = clonedDocument.querySelector(
               ".pdf-document"
             ) as HTMLElement | null;
-
+ 
             if (!pdfDocument) return;
-
+ 
+ 
             /*
               Add completely PDF-safe CSS.
               No oklch(), no Tailwind colors.
             */
-
+ 
             const safeStyle = clonedDocument.createElement("style");
-
+ 
             safeStyle.textContent = `
               * {
                 box-sizing: border-box !important;
               }
-
+ 
               html,
               body {
                 margin: 0 !important;
@@ -594,7 +771,7 @@ margin: [8, 0, 8, 0],
                 background: #ffffff !important;
                 color: #1f1a17 !important;
               }
-
+ 
               .pdf-document {
                 width: 210mm !important;
                 min-height: 297mm !important;
@@ -604,11 +781,11 @@ margin: [8, 0, 8, 0],
                 color: #1f1a17 !important;
                 font-family: Georgia, "Times New Roman", serif !important;
               }
-
+ 
               .pdf-toolbar {
                 display: none !important;
               }
-
+ 
               .pdf-main {
                 width: 100% !important;
                 max-width: none !important;
@@ -617,18 +794,18 @@ margin: [8, 0, 8, 0],
                 background: #ffffff !important;
                 color: #1f1a17 !important;
               }
-
+ 
               .pdf-main,
               .pdf-main * {
                 color: #1f1a17 !important;
                 font-family: Georgia, "Times New Roman", serif !important;
               }
-
+ 
               .pdf-main > section:first-child {
                 text-align: center !important;
                 margin-bottom: 12mm !important;
               }
-
+ 
               h1 {
                 font-size: 18pt !important;
                 font-weight: 700 !important;
@@ -636,7 +813,7 @@ margin: [8, 0, 8, 0],
                 text-align: center !important;
                 margin: 0 0 5mm 0 !important;
               }
-
+ 
               h2 {
                 font-size: 15pt !important;
                 font-weight: 700 !important;
@@ -644,143 +821,85 @@ margin: [8, 0, 8, 0],
                 text-align: center !important;
                 margin: 0 0 5mm 0 !important;
               }
-
+ 
               h3 {
                 font-size: 12pt !important;
                 font-weight: 700 !important;
                 line-height: 1.4 !important;
                 margin: 0 0 4mm 0 !important;
               }
-
+ 
               .pdf-main > section:first-child p {
                 font-size: 10.5pt !important;
                 line-height: 1.55 !important;
                 text-align: center !important;
                 margin: 2.5mm 0 !important;
               }
-
-             /* ==========================================
-   COMPACT PROFESSIONAL SPACING
-========================================== */
-
-.pdf-main section {
-  margin-top: 3.5mm !important;
-  margin-bottom: 0 !important;
-}
-
-.pdf-main > section:first-child {
-  margin-top: 0 !important;
-  margin-bottom: 7mm !important;
-}
-
-.pdf-main section.mt-8 {
-  margin-top: 4mm !important;
-}
-
-.pdf-main section.mt-6 {
-  margin-top: 3mm !important;
-}
-
-.pdf-main section.mt-5 {
-  margin-top: 3mm !important;
-}
-
-.pdf-main section.mt-10 {
-  margin-top: 5mm !important;
-}
-
-.pdf-meta-section h3 {
-  margin: 0 0 1.5mm 0 !important;
-}
-
-.pdf-meta-section > div,
-.pdf-meta-section > div > div {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.judgment-content p {
-  margin: 0 0 1.8mm 0 !important;
-}
-
+ 
+              section {
+                margin-top: 8mm !important;
+              }
+ 
+              p,
+              li,
+              .judgment-content,
+              .judgment-content p,
+              .judgment-content div,
+              .judgment-content span,
+              .judgment-content li {
+                font-size: 10.5pt !important;
+                line-height: 1.55 !important;
+              }
+ 
+              .judgment-content,
+              .judgment-content p,
+              .judgment-content div,
+              .judgment-content span,
+              .judgment-content li {
+                text-align: justify !important;
+              }
+ 
+              .judgment-content p {
+                margin: 0 0 4mm 0 !important;
+              }
+ 
               .border-t {
                 border-top: 1px solid #d9d1c8 !important;
               }
-/* ==========================================
-   PROFESSIONAL PDF PAGE BREAK CONTROL
-========================================== */
-
-/* Keep headings with the content that follows */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  break-after: avoid !important;
-  page-break-after: avoid !important;
-}
-
-/* Keep Act Referred and Judges sections clean */
-.pdf-meta-section {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
-
-/* Never split an Act/Judge row */
-.pdf-meta-section > div > div {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
-
-/* Judgment section can continue onto the next page */
-.judgment-content {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-}
-
-/* Judgment paragraphs should flow naturally across pages */
-.judgment-content p {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  orphans: 3;
-  widows: 3;
-}
-
-/* Allow long legal list items to continue naturally */
-.judgment-content li,
-.pdf-main li {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-}
-
-/* Tables and rows should never break awkwardly */
-table,
-tr {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
-
-/* Images stay within page width */
-img {
-  max-width: 100% !important;
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
+ 
+              h1,
+              h2,
+              h3,
+              h4,
+              h5,
+              h6 {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+              }
+ 
+              table,
+              tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+              }
+ 
+              img {
+                max-width: 100% !important;
+              }
             `;
-
+ 
             clonedDocument.head.appendChild(safeStyle);
-
+ 
             /*
               Remove any inline modern color values.
             */
-
+ 
             clonedDocument.querySelectorAll("*").forEach((node) => {
               const htmlElement = node as HTMLElement;
-
+ 
               const inlineStyle =
                 htmlElement.getAttribute("style") || "";
-
+ 
               if (
                 inlineStyle.includes("oklch") ||
                 inlineStyle.includes("oklab")
@@ -795,70 +914,59 @@ img {
             });
           },
         },
-
+ 
         /*
           IMPORTANT:
           jsPDF MUST BE HERE.
           NOT inside html2canvas.
         */
-
+ 
         jsPDF: {
           unit: "mm",
           format: "a4",
           orientation: "portrait",
         },
-
-       pagebreak: {
-  mode: ["css", "legacy"],
-  avoid: [
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    ".pdf-meta-section",
-    ".pdf-meta-section > div > div",
-    "table",
-    "tr",
-  ],
-},
+ 
+        pagebreak: {
+          mode: ["css", "legacy"],
+          avoid: [".judgmentcontent p"],
+        },
       })
       .from(clone)
       .outputPdf("blob");
-
+ 
     /*
       =====================================================
       OPEN PDF
       =====================================================
     */
-
+ 
     const pdfUrl = URL.createObjectURL(pdfBlob);
-
+ 
     pdfWindow.location.href = pdfUrl;
-
+ 
     /*
       Cleanup
     */
-
+ 
     if (container && document.body.contains(container)) {
       document.body.removeChild(container);
       container = null;
     }
-
+ 
     setTimeout(() => {
       URL.revokeObjectURL(pdfUrl);
     }, 60000);
-
+ 
   } catch (error) {
     console.error("PDF generation failed:", error);
-
+ 
     if (container && document.body.contains(container)) {
       document.body.removeChild(container);
     }
-
+ 
     pdfWindow.close();
-
+ 
     alert(
       `Unable to open PDF.\n\n${
         error instanceof Error ? error.message : String(error)
@@ -1118,7 +1226,7 @@ finally {
  
             </div>
  
-            {isLoading ? (
+ {isLoading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: PAGE_SIZE }).map((_, index) => (
                   <div key={index} className="animate-pulse rounded-3xl border border-border bg-card p-6" />
@@ -1387,59 +1495,77 @@ finally {
 {/* =====================================================
     TOP TOOLBAR
 ====================================================== */}
-<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center justify-end gap-3 border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
-
-  {/* VIEW / PRINT ICON */}
+<div className="pdf-toolbar sticky top-0 z-50 flex h-16 items-center justify-between border-b border-[#E4DCD2] bg-white px-6 shadow-sm">
+ 
+  {/* Title */}
+  <h2 className="text-xl font-bold text-[#351515]">
+    Judgement Details
+  </h2>
+ 
+   {/* Actions */}
+ <div className="flex items-center gap-2">
+  {/* Show View button only in fullscreen */}
   {isJudgmentFullscreen && (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={handleDownloadPdf}
+      className="rounded-full border-slate-200 px-5 text-[#17233c]"
+    >
+      <Printer className="mr-2 h-4 w-4" />
+      View
+    </Button>
+  )}
+ 
+  {/* Fullscreen Toggle */}
+  <Button
+    type="button"
+    variant="ghost"
+    onClick={() => setIsJudgmentFullscreen((current) => !current)}
+   className={`rounded-full h-9 px-4 hover:bg-[#F5EEDC] ${
+  isJudgmentFullscreen
+    ? "text-black hover:text-black"
+    : "text-[#806B5F] hover:text-[#351515]"
+}`}
+    title={isJudgmentFullscreen ? "Exit Fullscreen" : "Open"}
+ 
+ >
+    {isJudgmentFullscreen ? (
+      <>
+        <Minimize2 className="mr-2 h-4 w-4" />
+        Minimize
+      </>
+    ) : (
+      <>
+        <Maximize2 className="mr-2 h-4 w-4" />
+        Open
+      </>
+    )}
+  </Button>
+ 
+ 
+    {/* Close */}
     <Button
       type="button"
       variant="ghost"
       size="icon"
-      onClick={handleDownloadPdf}
-      className="h-10 w-10 rounded-full text-[#351515] hover:bg-[#F5EEDC]"
-      title="View"
+      onClick={() => {
+        setSelectedJudgment(null);
+        setIsJudgmentFullscreen(false);
+      }}
+      className="
+        h-9 w-9
+        text-[#806B5F]
+        hover:bg-[#F5EEDC]
+        hover:text-[#351515]
+      "
+      title="Close"
     >
-      <Printer className="h-5 w-5" />
+      <X className="h-5 w-5" />
     </Button>
-  )}
-
-  {/* FULLSCREEN / MINIMIZE ICON */}
-  <Button
-    type="button"
-    variant="ghost"
-    size="icon"
-    onClick={() => setIsJudgmentFullscreen((current) => !current)}
-    className={`h-10 w-10 rounded-full hover:bg-[#F5EEDC] ${
-      isJudgmentFullscreen
-        ? "text-black hover:text-black"
-        : "text-[#806B5F] hover:text-[#351515]"
-    }`}
-    title={isJudgmentFullscreen ? "Minimize" : "Open"}
-  >
-    {isJudgmentFullscreen ? (
-      <Minimize2 className="h-5 w-5" />
-    ) : (
-      <Maximize2 className="h-5 w-5" />
-    )}
-  </Button>
-
-  {/* CLOSE ICON */}
-  <Button
-    type="button"
-    variant="ghost"
-    size="icon"
-    onClick={() => {
-      setSelectedJudgment(null);
-      setIsJudgmentFullscreen(false);
-    }}
-    className="h-10 w-10 rounded-full text-[#806B5F] hover:bg-[#F5EEDC] hover:text-[#351515]"
-    title="Close"
-  >
-    <X className="h-5 w-5" />
-  </Button>
-
+ 
+  </div>
 </div>
-
  
  
     {/* =====================================================
@@ -1453,15 +1579,15 @@ finally {
           <section className="text-center">
  
           {selectedJudgment.Keycode && (
-  <h2 className="text-base font-bold text-[#351515]">
-    {new Date(selectedJudgment.Date ?? "").getFullYear()} JusticeLine{" "}
-    {selectedJudgment.Keycode}
-  </h2>
+  <h1 className="text-xl font-bold text-[#351515]">
+    {new Date(selectedJudgment.Date ?? "").getFullYear()} JusticeLine {selectedJudgment.Keycode}
+  </h1>
 )}
-
-<h1 className="mt-3 text-2xl font-bold uppercase text-[#351515]">
-  {selectedJudgment.COURT ?? "COURT"}
-</h1>
+ 
+            {/* COURT */}
+            <h2 className="mt-3 text-xl font-bold uppercase text-[#351515]">
+              {selectedJudgment.COURT ?? "COURT"}
+            </h2>
  
             {/* APPELLANT */}
             <p className="mt-4 text-lg font-bold leading-7 text-[#351515]">
@@ -1500,105 +1626,109 @@ finally {
  
      
  
-{/* =================================================
-    ACT REFERRED
-================================================== */}
-<section className="pdf-meta-section mt-6">
-  <h3 className="mb-1 text-base font-bold text-[#351515]">
-    Act Referred :
-  </h3>
-
-  <div className="space-y-1">
-    {selectedJudgment.Actreferred ? (
-      selectedJudgment.Actreferred
-        .split(/\r?\n/)
-        .map((act) => act.trim())
-        .filter(
-          (act) =>
-            act.length > 0 &&
-            !/^[.\-–—]+$/.test(act)
-        )
-        .map((act, index) => (
-          <div
-            key={`${act}-${index}`}
-            className="flex items-baseline gap-2"
-            style={{
-              breakInside: "avoid",
-              pageBreakInside: "avoid",
-            }}
-          >
-            <span
-              className="shrink-0 font-semibold text-[#351515]"
-              style={{
-                width: "22px",
-                display: "inline-block",
-              }}
-            >
-              {index + 1}.
-            </span>
-
-            <span className="text-base leading-6 text-[#351515]">
-              {act.replace(/^\s*\d+[\.\)]\s*/, "")}
-            </span>
-          </div>
-        ))
-    ) : (
-      <p className="text-[#806B5F]">
-        No acts referred.
-      </p>
-    )}
-  </div>
-</section>
+             {/* =================================================
+              ACTS REFERRED
+          ================================================== */}
+          <section className="mt-8">
+            <h3 className="mb-4 text-base font-bold text-[#351515]">
+              Act Referred :
+            </h3>
  
-         {/* =================================================
-    JUDGES
-================================================== */}
-<section className="pdf-meta-section mt-6">
-  <h3 className="mb-2 text-base font-bold text-[#351515]">
-    Judges :
-  </h3>
-
-  <div className="space-y-1">
-    {selectedJudgment.Judges ? (
-      selectedJudgment.Judges
-        .split(/[,;\n]+/)
-        .map((judge) => judge.trim())
-        .filter(
-          (judge) =>
-            judge.length > 0 &&
-            !/^[.\-–—]+$/.test(judge)
-        )
-        .map((judge, index) => (
-          <div
-            key={`${judge}-${index}`}
-            className="flex items-baseline gap-2"
-            style={{
-              breakInside: "avoid",
-              pageBreakInside: "avoid",
-            }}
-          >
-            <span
-              className="shrink-0 font-semibold text-[#351515]"
-              style={{
-                width: "22px",
-                display: "inline-block",
-              }}
-            >
-              {index + 1}.
-            </span>
-
-            <span className="leading-6 text-[#351515]">
-              {judge.replace(/^\s*\d+[\.\)]\s*/, "")}
-            </span>
-          </div>
-        ))
-    ) : (
-      <p className="text-[#806B5F]">
-        No judges available.
-      </p>
-    )}
-  </div>
-</section>
+            <div className="space-y-3">
+              {selectedJudgment.Actreferred ? (
+                selectedJudgment.Actreferred
+                  .split(/\r?\n/)
+                  .filter(Boolean)
+                  .map((act, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3"
+                    >
+                    <div className="flex items-start gap-4 py-2">
+  <span className="w-0 shrink-0 text-base font-semibold text-black">
+    {index + 1}.
+  </span>
+ 
+  <span className="flex-1 text-[15px] leading-7 text-gray-900">
+    {judge.trim()}
+  </span>
+</div>
+ 
+                      <p className="pt-1 text-base leading-7 text-black">
+                        {act.replace(
+                          /^\s*\d+[\.\)]\s*/,
+                          ""
+                        )}
+                      </p>
+                    </div>
+                  ))
+              ) : (
+                <p className="text-[#806B5F]">
+                  No acts referred.
+                </p>
+              )}
+            </div>
+          </section>
+ 
+          {/* =================================================
+              JUDGES
+          ================================================== */}
+          <section className="mt-8">
+            <h3 className="mb-4 text-base font-bold text-[#351515]">
+              Judges :
+            </h3>
+ 
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
+              {selectedJudgment.Judges ? (
+                selectedJudgment.Judges
+                  .split(/[,;\n]+/)
+                  .map((judge, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="flex items-start gap-4 py-2">
+  <span className="w-1 shrink-0 text-base font-semibold text-black">
+    {index + 1}.
+  </span>
+ 
+  <span className="flex-1 text-[15px] leading-7 text-gray-900">
+    {judge.trim()}
+  </span>
+</div>
+ 
+                      <span className="text-base text-black">
+                        {judge.trim()}
+                      </span>
+                    </div>
+                  ))
+              ) : (
+                <p className="text-[#806B5F]">
+                  No judges available.
+                </p>
+              )}
+            </div>
+          </section>
+ 
+          {/* =================================================
+              ADVOCATES
+          ================================================== */}
+ 
+          {selectedJudgment.Advocates && (
+            <section className="mt-8">
+              <h3 className="mb-4 text-base font-bold text-[#351515]">
+                Advocates :
+              </h3>
+ 
+              <div
+                className="text-base leading-8 text-[#351515]"
+                dangerouslySetInnerHTML={{
+                  __html: selectedJudgment.Advocates,
+                }}
+              />
+            </section>
+          )}
+ 
           {/* =================================================
               ADVOCATES
           ================================================== */}
@@ -1645,10 +1775,10 @@ finally {
           {/* =================================================
               FULL JUDGMENT
           ================================================== */}
-        <section className="mt-4 border-t border-[#E4DCD2] pt-3">
-  <h3 className="mb-1.5 text-lg font-bold text-[#351515]">
-    Judgment
-  </h3>
+          <section className="mt-5 border-t border-[#E4DCD2] pt-5">
+            <h3 className="mb-6 text-lg font-bold text-[#351515]">
+              Judgment
+            </h3>
  
             <div
               className="
@@ -1690,6 +1820,7 @@ finally {
     </>
   );
 }
+ 
  
  
  
