@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import JudgmentPreviewDialog from "@/components/judgments/JudgmentPreviewDialog";
 import {
   Plus,
   Search,
@@ -39,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
 import {
   loadConversations,
   saveConversations,
@@ -48,8 +50,6 @@ import {
   timeBucket,
   type Conversation,
 } from "@/lib/chat-store";
-import { MobileSidebar } from "@/components/mobile/MobileSidebar";
-import { MobileChatQuickActions } from "@/components/mobile/MobileChat";
  
 export const Route = createFileRoute("/_workspace/chat")({
   head: () => ({
@@ -63,7 +63,29 @@ export const Route = createFileRoute("/_workspace/chat")({
   component: ChatPage,
 });
  
-type Msg = { role: "user" | "assistant"; content: string; citations?: string[] };
+type JudgmentCard = {
+  id: string | number;
+  Keycode?: number | null;
+  COURT?: string | null;
+  Judges?: string | null;
+  Bench?: string | number | null;
+  CaseNo?: string | null;
+  Appellant?: string | null;
+  Respondent?: string | null;
+  Headnote?: string | null;
+  HNote?: string | null;
+  Judgement?: string | null;
+  Actreferred?: string | null;
+  Date?: string | null;
+  Result?: string | null;
+  year?: number | null;
+};
+ 
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  judgments?: JudgmentCard[];
+};
  
 type ModeId = "quick" | "deep-search" | "deep-thinking" | "deep-research";
 type ModeDef = {
@@ -121,7 +143,7 @@ const MODES: ModeDef[] = [
   },
 ];
  
-
+ 
  
 const suggestions = [
   { icon: Gavel, text: "Explain Section 498A IPC with recent judgments" },
@@ -131,48 +153,51 @@ const suggestions = [
 ];
  
 function ChatPage() {
+  
 const [conversations, setConversations] = useState<Conversation[]>([]);
 const [activeId, setActiveIdState] = useState<string | null>(null);
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [input, setInput] = useState("");
 const [messages, setMessages] = useState<Msg[]>([]);
+const [selectedJudgment, setSelectedJudgment] =
+  useState<JudgmentCard | null>(null);
 const [pending, setPending] = useState(false);
 const [mode, setMode] = useState<ModeId>("deep-thinking");
   const [modalOpen, setModalOpen] = useState(false);
 const scrollRef = useRef<HTMLDivElement>(null);
-
+ 
 const saveCurrentConversation = (
   updatedMessages: Msg[],
   conversationId?: string
 ) => {
   setConversations((current) => {
     const id = conversationId ?? activeId;
-
+ 
     // If there is no active conversation yet, create one
     if (!id) {
       const newChat = newConversation(mode);
-
+ 
       const firstUserMessage =
         updatedMessages.find((m) => m.role === "user")?.content ?? "New Chat";
-
+ 
       newChat.title =
         firstUserMessage.length > 50
           ? firstUserMessage.slice(0, 50) + "…"
           : firstUserMessage;
-
+ 
       newChat.messages = updatedMessages;
       newChat.updatedAt = Date.now();
-
+ 
       const updatedList = [newChat, ...current];
-
+ 
       setActiveIdState(newChat.id);
       setActiveId(newChat.id);
-
+ 
       saveConversations(updatedList);
-
+ 
       return updatedList;
     }
-
+ 
     // Update existing conversation
     const updatedList = current.map((conversation) =>
       conversation.id === id
@@ -184,9 +209,9 @@ const saveCurrentConversation = (
           }
         : conversation
     );
-
+ 
     saveConversations(updatedList);
-
+ 
     return updatedList;
   });
 };
@@ -195,34 +220,34 @@ const saveCurrentConversation = (
     const updatedList = current.filter(
       (conversation) => conversation.id !== conversationId
     );
-
+ 
     saveConversations(updatedList);
-
+ 
     return updatedList;
   });
-
+ 
   if (activeId === conversationId) {
     setActiveIdState(null);
     setActiveId(null);
     setMessages([]);
   }
-
+ 
   setOpenMenuId(null);
 };
 useEffect(() => {
   const saved = loadConversations();
-
+ 
   setConversations(saved);
-
+ 
   const savedActiveId = getActiveId();
-
+ 
   if (savedActiveId && saved.some((c) => c.id === savedActiveId)) {
     setActiveIdState(savedActiveId);
-
+ 
     const activeConversation = saved.find(
       (c) => c.id === savedActiveId
     );
-
+ 
     if (activeConversation) {
       setMessages(activeConversation.messages as Msg[]);
       setMode(activeConversation.mode as ModeId);
@@ -236,20 +261,20 @@ useEffect(() => {
 const send = async (text?: string) => {
   const content = (text ?? input).trim();
   if (!content) return;
-
+ 
   const userMessage: Msg = {
     role: "user",
     content,
   };
-
+ 
   const messagesAfterUser = [...messages, userMessage];
-
+ 
   setMessages(messagesAfterUser);
   setInput("");
   setPending(true);
-
+ 
   // Save the user's question immediately
-
+ 
   try {
    const res = await fetch(`/api/assistant`, {
   method: "POST",
@@ -263,9 +288,9 @@ const send = async (text?: string) => {
     })),
   }),
 });
-
+ 
     const data = await res.json();
-
+ 
     if (!res.ok || data?.error) {
       const assistantMessage: Msg = {
         role: "assistant",
@@ -274,34 +299,37 @@ const send = async (text?: string) => {
           "Unable to fetch answer from JusticeLine AI.",
         citations: [],
       };
-
+ 
       const finalMessages = [
         ...messagesAfterUser,
         assistantMessage,
       ];
-
+ 
       setMessages(finalMessages);
-
+ 
       // Save user's question + error response
       saveCurrentConversation(finalMessages);
     } else {
-      const citations = (data.judgments ?? []).map(
-        (j: any) => j.citation ?? j.title ?? ""
-      );
-
-      const assistantMessage: Msg = {
-        role: "assistant",
-        content: data.answer ?? "",
-        citations,
-      };
-
+      const judgments: JudgmentCard[] = Array.isArray(data.judgments)
+  ? data.judgments
+  : [];
+ 
+console.log("[CHAT] Related judgments received:", judgments.length);
+console.log("[CHAT] Related judgments:", judgments);
+ 
+const assistantMessage: Msg = {
+  role: "assistant",
+  content: data.answer ?? "",
+  judgments,
+};
+ 
       const finalMessages = [
         ...messagesAfterUser,
         assistantMessage,
       ];
-
+ 
       setMessages(finalMessages);
-
+ 
       // Save user's question + AI answer
       saveCurrentConversation(finalMessages);
     }
@@ -311,14 +339,14 @@ const send = async (text?: string) => {
       content: "Unable to reach JusticeLine AI.",
       citations: [],
     };
-
+ 
     const finalMessages = [
       ...messagesAfterUser,
       assistantMessage,
     ];
-
+ 
     setMessages(finalMessages);
-
+ 
     // Save conversation even if API fails
     saveCurrentConversation(finalMessages);
   } finally {
@@ -330,7 +358,7 @@ const send = async (text?: string) => {
   const currentMode = MODES.find((m) => m.id === mode)!;
  
   return (
-    <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 overflow-x-hidden">
+    <div className="flex h-screen min-h-0 flex-1">
       {/* Chat sidebar */}
       <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
         <div className="p-4">
@@ -378,9 +406,9 @@ const send = async (text?: string) => {
           const selectedConversation = conversations.find(
             (conversation) => conversation.id === c.id
           );
-
+ 
           if (!selectedConversation) return;
-
+ 
           setActiveIdState(selectedConversation.id);
           setActiveId(selectedConversation.id);
           setMessages(selectedConversation.messages as Msg[]);
@@ -390,12 +418,12 @@ const send = async (text?: string) => {
         className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left text-xs"
       >
         <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-
+ 
         <span className="line-clamp-2 leading-snug">
           {c.title}
         </span>
       </button>
-
+ 
       {/* Three-dot menu */}
       <button
         type="button"
@@ -410,7 +438,7 @@ const send = async (text?: string) => {
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
-
+ 
       {/* Menu */}
       {openMenuId === c.id && (
         <div className="absolute right-1 top-9 z-50 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
@@ -434,42 +462,13 @@ const send = async (text?: string) => {
  
       {/* Main chat */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-4 lg:px-6">
-          <div className="md:hidden">
-            <MobileSidebar />
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold">Section 138 NI Act — recent SC interpretation</h1>
+            <p className="text-xs text-muted-foreground">JusticeLine AI · Grounded in Indian case law</p>
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold">
-              {conversations.find((c) => c.id === activeId)?.title ?? "New Chat"}
-            </h1>
-            <p className="truncate text-xs text-muted-foreground">
-              JusticeLine AI · Grounded in Indian case law
-            </p>
-          </div>
-          <div className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground sm:flex">
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live · GPT-4 legal
-          </div>
-          <div className="lg:hidden">
-            <MobileChatQuickActions
-              conversations={conversations}
-              activeId={activeId}
-              onSelect={(id) => {
-                const selected = conversations.find((c) => c.id === id);
-                if (!selected) return;
-                setActiveIdState(selected.id);
-                setActiveId(selected.id);
-                setMessages(selected.messages as Msg[]);
-                setMode(selected.mode as ModeId);
-                setOpenMenuId(null);
-              }}
-              onDelete={deleteConversation}
-              onNewChat={() => {
-                setActiveIdState(null);
-                setActiveId(null);
-                setMessages([]);
-                setOpenMenuId(null);
-              }}
-            />
           </div>
         </div>
  
@@ -504,11 +503,12 @@ const send = async (text?: string) => {
                     </span>
                     <span className="text-foreground">{s.text}</span>
                   </button>
+ 
                 ))}
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-3xl space-y-6 px-3 py-6 sm:space-y-8 sm:px-6 sm:py-8">
+            <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
               {messages.map((m, i) => (
                 <div key={i} className={cn("flex gap-4", m.role === "user" && "justify-end")}>
                   {m.role === "assistant" && (
@@ -516,7 +516,7 @@ const send = async (text?: string) => {
                       <Scale className="h-4 w-4" />
                     </div>
                   )}
-                  <div className={cn("min-w-0 max-w-[92%] break-words sm:max-w-[85%]", m.role === "user" ? "" : "flex-1")}>
+                  <div className={cn("min-w-0 max-w-[85%]", m.role === "user" ? "" : "flex-1")}>
                     {m.role === "user" ? (
                       <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
                         {m.content}
@@ -564,20 +564,93 @@ const send = async (text?: string) => {
 >
   {m.content}
 </ReactMarkdown>
-                        {m.citations && (
-                          <div className="mt-4 rounded-lg border border-border bg-secondary/50 p-3">
-                            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
-                              Citations
-                            </div>
-                            <ul className="space-y-1 text-xs text-muted-foreground">
-                              {m.citations.map((c) => (
-                                <li key={c} className="flex gap-2">
-                                  <span className="text-gold">§</span> {c}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                       {m.judgments && m.judgments.length > 0 && (
+  <div className="mt-6">
+    <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
+      Related Judgments
+    </div>
+ 
+    <div className="space-y-3">
+      {m.judgments.map((judgment) => {
+        const caseName =
+          judgment.Appellant && judgment.Respondent
+            ? `${judgment.Appellant} v. ${judgment.Respondent}`
+            : judgment.CaseNo || "Judgment";
+ 
+        const preview =
+          judgment.Headnote ||
+          judgment.HNote ||
+          judgment.Judgement ||
+          "No judgment summary available.";
+ 
+        const cleanPreview = preview
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+ 
+        return (
+          <div
+            key={String(judgment.id)}
+            className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {judgment.COURT || "Court"}
+                </div>
+ 
+                <h3 className="text-sm font-semibold leading-6 text-foreground">
+                  {caseName}
+                </h3>
+ 
+                {judgment.CaseNo && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Case No: {judgment.CaseNo}
+                  </p>
+                )}
+ 
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  {judgment.Keycode !== null &&
+                    judgment.Keycode !== undefined && (
+                      <span>
+                        Keycode: {judgment.Keycode}
+                      </span>
+                    )}
+ 
+                  {judgment.year && (
+                    <span>
+                      Year: {judgment.year}
+                    </span>
+                  )}
+ 
+                  {judgment.Date && (
+                    <span>
+                      Date: {judgment.Date}
+                    </span>
+                  )}
+                </div>
+ 
+                <p className="mt-3 line-clamp-3 text-xs leading-6 text-muted-foreground">
+                  {cleanPreview}
+                </p>
+              </div>
+ 
+             <button
+  type="button"
+  onClick={() => {
+    setSelectedJudgment(judgment);
+  }}
+>
+  View Judgment
+</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+                     
                       </div>
                     )}
                   </div>
@@ -602,7 +675,7 @@ const send = async (text?: string) => {
  
  
  {/* Composer */}
-        <div className="border-t border-border bg-background p-3 sm:p-6">
+        <div className="border-t border-border bg-background p-4 sm:p-6">
           <div className="mx-auto max-w-3xl">
             {/* Current mode indicator */}
             <div className="mb-2 flex items-center justify-between">
@@ -659,7 +732,7 @@ const send = async (text?: string) => {
                   <Button type="button" size="icon" variant="ghost" className="h-8 w-8">
                     <Mic className="h-4 w-4" />
                   </Button>
-                  <span className="ml-1 hidden text-[11px] text-muted-foreground sm:inline">
+                  <span className="ml-1 text-[11px] text-muted-foreground">
                     Grounded in Indian case law · Verify before filing
                   </span>
                 </div>
@@ -677,15 +750,22 @@ const send = async (text?: string) => {
         </div>
       </div>
  
-      <ResponseModeDialog
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        currentMode={mode}
-        onContinue={(next) => {
-          setMode(next);
-          setModalOpen(false);
-        }}
-      />
+      <JudgmentPreviewDialog
+  judgment={selectedJudgment}
+  onClose={() => {
+    setSelectedJudgment(null);
+  }}
+/>
+
+<ResponseModeDialog
+  open={modalOpen}
+  onOpenChange={setModalOpen}
+  currentMode={mode}
+  onContinue={(next) => {
+    setMode(next);
+    setModalOpen(false);
+  }}
+/>
     </div>
   );
 }
@@ -709,8 +789,8 @@ function ResponseModeDialog({
  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-2xl overflow-hidden p-0">
-        <div className="border-b border-border bg-brand-gradient px-4 py-4 text-white sm:px-6 sm:py-5">
+      <DialogContent className="max-w-2xl overflow-hidden p-0">
+        <div className="border-b border-border bg-brand-gradient px-6 py-5 text-white">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="font-serif text-xl font-semibold text-white">
               AI Response Mode
@@ -721,7 +801,7 @@ function ResponseModeDialog({
           </DialogHeader>
         </div>
  
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
           {MODES.map((m) => {
             const active = selected === m.id;
             return (
@@ -831,5 +911,6 @@ function ModeBadge({ tone, label }: { tone: "default" | "recommended" | "premium
     </span>
   );
 }
+ 
  
  
