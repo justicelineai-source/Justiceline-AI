@@ -1,7 +1,12 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
+ 
 type SearchRecord = {
   id: string | number;
+ 
+  Keycode?: number | null;
+  COURT?: string | null;
+  Judges?: string | null;
+  Bench?: string | null;
   CaseNo?: string | null;
   Appellant?: string | null;
   Respondent?: string | null;
@@ -9,25 +14,26 @@ type SearchRecord = {
   HNote?: string | null;
   Judgement?: string | null;
   Actreferred?: string | null;
-  COURT?: string | null;
   Date?: string | null;
+  Result?: string | null;
+  year?: number | null;
 };
-
+ 
 export async function searchJusticeLine(
   query: string
 ): Promise<SearchRecord[]> {
   const term = (query || "").trim();
-
+ 
   if (!term) {
     return [];
   }
-
+ 
   console.log("[AI] Supabase search started");
   console.log("[AI] Original query:", term);
-
+ 
   try {
     const db = supabaseAdmin as any;
-
+ 
     /*
      * Extract useful legal search terms from the user's
      * natural-language question.
@@ -49,7 +55,6 @@ export async function searchJusticeLine(
             "give",
             "please",
             "does",
-            "does",
             "under",
             "with",
             "from",
@@ -69,21 +74,21 @@ export async function searchJusticeLine(
             "would",
           ].includes(word.toLowerCase())
       );
-
+ 
     console.log("[AI] Search keywords:", words);
-
+ 
     if (words.length === 0) {
       return [];
     }
-
+ 
     /*
      * Search each useful keyword independently.
      *
-     * This is much better than searching the entire
-     * natural-language question as one exact phrase.
+     * Results are stored in a Map so duplicate
+     * judgments are removed automatically.
      */
     const resultsMap = new Map<string | number, SearchRecord>();
-
+ 
     for (const word of words.slice(0, 6)) {
       const filters = [
         `CaseNo.ilike.%${word}%`,
@@ -95,15 +100,15 @@ export async function searchJusticeLine(
         `Actreferred.ilike.%${word}%`,
         `COURT.ilike.%${word}%`,
       ];
-
+ 
       const { data, error } = await db
         .from("judgments")
         .select(
-          "id, CaseNo, Appellant, Respondent, Headnote, HNote, Judgement, Actreferred, COURT, Date"
+          "id, Keycode, COURT, Judges, Bench, CaseNo, Appellant, Respondent, Headnote, HNote, Judgement, Actreferred, Date, Result, year"
         )
         .or(filters.join(","))
         .limit(6);
-
+ 
       if (error) {
         console.error(
           `[AI] Supabase search error for "${word}":`,
@@ -111,28 +116,29 @@ export async function searchJusticeLine(
         );
         continue;
       }
-
+ 
       for (const record of data ?? []) {
         if (record?.id !== undefined && record?.id !== null) {
           resultsMap.set(record.id, record as SearchRecord);
         }
       }
     }
-
+ 
+    /*
+     * Return maximum 6 unique judgments.
+     */
     const results = Array.from(resultsMap.values()).slice(0, 6);
-
-    console.log(
-      "[AI] Supabase records found:",
-      results.length
-    );
-
+ 
+    console.log("[AI] Supabase records found:", results.length);
+ 
     return results;
   } catch (error) {
     console.error(
       "[AI] Supabase search unexpected error:",
       error
     );
-
+ 
     return [];
   }
 }
+ 

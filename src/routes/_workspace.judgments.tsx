@@ -113,6 +113,39 @@ const [judgments, setJudgments] = useState<JudgmentRow[]>([]);
   const [count, setCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+    // Open a judgment preview automatically when coming
+  // from AI Chat using /judgments?id=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const judgmentId = params.get("id");
+
+    if (!judgmentId) return;
+
+    const openJudgmentFromUrl = async () => {
+      try {
+        const { data, error } = await (supabase as any)
+  .from("judgments")
+  .select(
+    "id,Keycode,COURT,Judges,CaseNo,Appellant,Respondent,Headnote,HNote,Judgement,Actreferred,Date,Bench,Result,year"
+  )
+  .eq("id", judgmentId)
+  .maybeSingle();
+
+        if (error) {
+          console.error("Unable to load judgment from URL:", error);
+          return;
+        }
+
+        if (data) {
+          setSelectedJudgment(data);
+        }
+      } catch (error) {
+        console.error("Unable to open judgment preview:", error);
+      }
+    };
+
+    openJudgmentFromUrl();
+  }, []);
 const handleDownloadPdf = async () => {
   const element = judgmentDocumentRef.current;
  
@@ -987,8 +1020,8 @@ const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
       setIsLoading(true);
       setError(null);
 try {
-  const query = supabase
-    .from("judgments")
+ const query = (supabase as any)
+  .from("judgments")
     .select(
       "id,Keycode,COURT,Judges,CaseNo,Appellant,Respondent,Headnote,HNote,Judgement,Actreferred,Date,Bench,Result,year",
       {
@@ -996,7 +1029,7 @@ try {
       },
     )
     .order("year", { ascending: false });
- 
+  
   const filters: string[] = [];
   const term = search.trim();
  
@@ -1820,8 +1853,6 @@ finally {
     </>
   );
 }
- 
- 
  
  
  

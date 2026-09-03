@@ -10,6 +10,7 @@ export type AssistantSource =
 export type Confidence = "High" | "Medium" | "Low";
 
 export type RelatedJudgment = {
+  id: string | number;
   title: string;
   citation: string;
   court?: string;
