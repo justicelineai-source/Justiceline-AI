@@ -65,6 +65,16 @@ export const Route = createFileRoute("/_workspace/chat")({
  
 type JudgmentCard = {
   id: string | number;
+
+  // Display fields
+  title: string;
+  citation: string;
+  court?: string;
+  year?: number | null;
+  principle?: string;
+  relevance?: string;
+
+  // Original JusticeLine judgment fields
   Keycode?: number | null;
   COURT?: string | null;
   Judges?: string | null;
@@ -78,7 +88,7 @@ type JudgmentCard = {
   Actreferred?: string | null;
   Date?: string | null;
   Result?: string | null;
-  year?: number | null;
+  Advocates?: string | null;
 };
  
 type Msg = {
@@ -297,7 +307,7 @@ const send = async (text?: string) => {
         content:
           data?.error ??
           "Unable to fetch answer from JusticeLine AI.",
-        citations: [],
+      
       };
  
       const finalMessages = [
@@ -337,7 +347,7 @@ const assistantMessage: Msg = {
     const assistantMessage: Msg = {
       role: "assistant",
       content: "Unable to reach JusticeLine AI.",
-      citations: [],
+      
     };
  
     const finalMessages = [
@@ -358,9 +368,9 @@ const assistantMessage: Msg = {
   const currentMode = MODES.find((m) => m.id === mode)!;
  
   return (
-    <div className="flex h-screen min-h-0 flex-1">
+    <div className="flex h-screen min-h-0 flex-1 overflow-hidden">
       {/* Chat sidebar */}
-      <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
+      <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-border bg-secondary/30 lg:flex">
         <div className="p-4">
   <Button
   onClick={() => {
@@ -461,7 +471,7 @@ const assistantMessage: Msg = {
       </aside>
  
       {/* Main chat */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col">
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold">Section 138 NI Act — recent SC interpretation</h1>
@@ -564,86 +574,63 @@ const assistantMessage: Msg = {
 >
   {m.content}
 </ReactMarkdown>
-                       {m.judgments && m.judgments.length > 0 && (
+{m.judgments && m.judgments.length > 0 && (
   <div className="mt-6">
-    <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
+    <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
       Related Judgments
     </div>
- 
-    <div className="space-y-3">
+
+    <div className="space-y-6">
       {m.judgments.map((judgment) => {
         const caseName =
-          judgment.Appellant && judgment.Respondent
+          judgment.title ||
+          (judgment.Appellant && judgment.Respondent
             ? `${judgment.Appellant} v. ${judgment.Respondent}`
-            : judgment.CaseNo || "Judgment";
- 
-        const preview =
-          judgment.Headnote ||
-          judgment.HNote ||
-          judgment.Judgement ||
-          "No judgment summary available.";
- 
-        const cleanPreview = preview
-          .replace(/<[^>]*>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
- 
+            : judgment.CaseNo || "Judgment");
+
         return (
           <div
             key={String(judgment.id)}
-            className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+            className="space-y-2"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                  {judgment.COURT || "Court"}
-                </div>
- 
-                <h3 className="text-sm font-semibold leading-6 text-foreground">
-                  {caseName}
-                </h3>
- 
-                {judgment.CaseNo && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Case No: {judgment.CaseNo}
-                  </p>
-                )}
- 
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  {judgment.Keycode !== null &&
-                    judgment.Keycode !== undefined && (
-                      <span>
-                        Keycode: {judgment.Keycode}
-                      </span>
-                    )}
- 
-                  {judgment.year && (
-                    <span>
-                      Year: {judgment.year}
-                    </span>
-                  )}
- 
-                  {judgment.Date && (
-                    <span>
-                      Date: {judgment.Date}
-                    </span>
-                  )}
-                </div>
- 
-                <p className="mt-3 line-clamp-3 text-xs leading-6 text-muted-foreground">
-                  {cleanPreview}
-                </p>
-              </div>
- 
-             <button
+            {/* CASE NAME */}
+           <button
   type="button"
-  onClick={() => {
-    setSelectedJudgment(judgment);
-  }}
+  onClick={() => setSelectedJudgment(judgment)}
+  className="group inline-flex items-center gap-1.5 text-left text-base font-bold text-black transition-colors duration-200 hover:text-[#8a6408]"
 >
-  View Judgment
+  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:decoration-[#8a6408] group-hover:decoration-2">
+    {caseName}
+  </span>
+ 
+  <FileText
+    className="h-4 w-4 shrink-0 text-[#c89b3c] opacity-70 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100"
+  />
 </button>
-            </div>
+
+            {/* CITATION / PRINCIPLE / RELEVANCE */}
+           <ul className="list-disc space-y-2 pl-5 text-sm leading-7 text-foreground">
+  {judgment.citation && (
+    <li>
+      <span className="font-semibold">Citation:</span>{" "}
+      {judgment.citation}
+    </li>
+  )}
+
+  {judgment.principle && (
+    <li>
+      <span className="font-semibold">Principle:</span>{" "}
+      {judgment.principle}
+    </li>
+  )}
+
+  {judgment.relevance && (
+    <li>
+      <span className="font-semibold">Relevance:</span>{" "}
+      {judgment.relevance}
+    </li>
+  )}
+</ul>
           </div>
         );
       })}

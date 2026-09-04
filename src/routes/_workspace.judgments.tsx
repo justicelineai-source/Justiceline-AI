@@ -734,7 +734,7 @@ const handleDownloadPdf = async () => {
     */
  
     const pdfBlob = await html2pdf()
-      .set({
+  .set({
         margin: 0,
  
         filename: `${fileName}.pdf`,
@@ -964,7 +964,7 @@ const handleDownloadPdf = async () => {
           mode: ["css", "legacy"],
           avoid: [".judgmentcontent p"],
         },
-      })
+           } as any)
       .from(clone)
       .outputPdf("blob");
  
@@ -1853,6 +1853,7 @@ finally {
     </>
   );
 }
+ 
  
  
  

@@ -27,7 +27,132 @@ type GenerateParams = {
   grounded?: boolean;
   mode: ChatMode;
 };
- 
+type RelatedJudgmentMetadata = {
+  id: string | number;
+  citation: string;
+  principle: string;
+  relevance: string;
+};
+async function generateRelatedJudgmentMetadata(
+  question: string,
+  records: any[],
+): Promise<RelatedJudgmentMetadata[]> {
+  if (!records.length) return [];
+
+  if (!client) return [];
+
+  const metadataInput = records.slice(0, 6).map((record) => ({
+    id: record.id,
+    caseNo: record.CaseNo ?? null,
+    appellant: record.Appellant ?? null,
+    respondent: record.Respondent ?? null,
+    court: record.COURT ?? null,
+    date: record.Date ?? null,
+    year: record.year ?? null,
+    headnote: record.Headnote ?? record.HNote ?? null,
+    judgment: record.Judgement ?? null,
+    acts: record.Actreferred ?? null,
+  }));
+
+  const metadataPrompt = `
+You are preparing concise legal research metadata for judgments
+retrieved from the JusticeLine judgment database.
+
+User's legal question:
+${question}
+
+JusticeLine judgment records:
+${JSON.stringify(metadataInput, null, 2)}
+
+For EACH judgment, return:
+
+1. citation
+2. principle
+3. relevance
+
+STRICT RULES:
+
+- Use ONLY the information contained in the supplied JusticeLine records.
+- Never invent a citation.
+- If a reliable legal citation is not present in the supplied record,
+  return exactly:
+  "Citation not available in JusticeLine record."
+- The principle must briefly explain the legal rule, holding, or
+  important proposition actually supported by the judgment record.
+- The relevance must explain why THIS PARTICULAR judgment is relevant
+  to the user's legal question.
+- Do not invent facts, holdings, dates, statutory provisions, or citations.
+- Do not confuse the case number with a legal reporter citation.
+- Keep each principle concise, approximately 1–3 sentences.
+- Keep each relevance concise, approximately 1–2 sentences.
+- Return ONLY valid JSON.
+- Do not use Markdown.
+- Preserve the supplied database ID exactly.
+
+Return exactly:
+
+[
+  {
+    "id": "database id",
+    "citation": "...",
+    "principle": "...",
+    "relevance": "..."
+  }
+]
+`;
+
+  try {
+    const response = await client.responses.create({
+      model: "gpt-5.5",
+      input: metadataPrompt,
+      max_output_tokens: 3000,
+    });
+
+    const raw = response.output_text?.trim() || "[]";
+
+    const cleaned = raw
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(
+        (item) =>
+          item &&
+          item.id !== undefined &&
+          item.id !== null,
+      )
+      .map((item) => ({
+        id: item.id,
+        citation:
+          typeof item.citation === "string"
+            ? item.citation
+            : "Citation not available in JusticeLine record.",
+        principle:
+          typeof item.principle === "string"
+            ? item.principle
+            : "Principle not available in JusticeLine record.",
+        relevance:
+          typeof item.relevance === "string"
+            ? item.relevance
+            : "Relevance could not be determined from the JusticeLine record.",
+      }));
+  } catch (error) {
+    console.error(
+      "[AI] Related judgment metadata generation failed:",
+      error,
+    );
+
+    return [];
+  }
+}
 export async function generateAnswer(
   params: GenerateParams
 ): Promise<AssistantAnswer> {
@@ -402,7 +527,52 @@ const response = await client.responses.create({
         followUps: [],
       };
     }
- 
+ const metadata = await generateRelatedJudgmentMetadata(
+  question,
+  records,
+);
+
+const metadataMap = new Map(
+  metadata.map((item) => [String(item.id), item]),
+);
+
+const relatedJudgments: RelatedJudgment[] = records
+  .slice(0, 6)
+  .map((record: any) => {
+    const title =
+      record.Appellant && record.Respondent
+        ? `${record.Appellant} v. ${record.Respondent}`
+        : record.CaseNo || "Judgment";
+
+    const generated = metadataMap.get(String(record.id));
+
+    return {
+      ...record,
+
+      id: record.id,
+
+      title,
+
+      citation:
+        generated?.citation ||
+        "Citation not available in JusticeLine record.",
+
+      court: record.COURT || undefined,
+
+      year:
+        record.year !== null && record.year !== undefined
+          ? Number(record.year)
+          : null,
+
+      principle:
+        generated?.principle ||
+        "Principle not available in JusticeLine record.",
+
+      relevance:
+        generated?.relevance ||
+        "Relevance could not be determined from the JusticeLine record.",
+    };
+  });
    const answer: AssistantAnswer = {
   answer:
     output.answer ??
@@ -417,8 +587,7 @@ const response = await client.responses.create({
  
   // Use the REAL Supabase judgment records.
   // Do not depend on OpenAI to recreate them.
-  judgments: records as RelatedJudgment[],
- 
+judgments: relatedJudgments, 
   documents: Array.isArray(output.documents)
     ? output.documents
     : [],
