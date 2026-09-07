@@ -594,12 +594,12 @@ const assistantMessage: Msg = {
             className="space-y-2"
           >
             {/* CASE NAME */}
-           <button
+  <button
   type="button"
   onClick={() => setSelectedJudgment(judgment)}
-  className="group inline-flex items-center gap-1.5 text-left text-base font-bold text-black transition-colors duration-200 hover:text-[#8a6408]"
+  className="group inline-flex items-center gap-1.5 text-left text-base font-bold text-foreground transition-colors duration-200 hover:text-[#c89b3c]"
 >
-  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:decoration-[#8a6408] group-hover:decoration-2">
+  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:text-[#c89b3c] group-hover:decoration-[#c89b3c] group-hover:decoration-2"> 
     {caseName}
   </span>
  

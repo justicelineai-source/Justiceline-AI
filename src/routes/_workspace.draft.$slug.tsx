@@ -1,360 +1,906 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import JudgmentPreviewDialog from "@/components/judgments/JudgmentPreviewDialog";
 import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
+  Plus,
+  Search,
+  Paperclip,
+  Mic,
+ ArrowUp,
+ArrowUpRight,
+Sparkles,
+  Scale,
+  MessageCircle,
+  BookOpen,
+  Gavel,
   FileText,
-  User,
-  Users,
-  Info,
-  FileCheck,
+  Zap,
+  SearchCheck,
+  Brain,
+  Library,
+  Check,
+    ChevronDown,
+  HelpCircle,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
-import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
-// Map of template slug → { title, category, sections }
-// Sale Deed has its own dedicated route (_workspace.draft.sale-deed.tsx) and
-// takes precedence; every other template resolves here as a placeholder form
-// with the same guided, sectioned layout as Sale Deed.
-type TemplateDef = { title: string; category: string; formName: string };
-
-const TEMPLATES: Record<string, TemplateDef> = {
-  // Property
-  "gift-deed": { title: "Gift Deed", category: "Property Documents", formName: "Gift Deed Form" },
-  "lease-deed": { title: "Lease Deed", category: "Property Documents", formName: "Lease Agreement Form" },
-  "rental-agreement": { title: "Rental Agreement", category: "Property Documents", formName: "Rental Agreement Form" },
-  "mortgage-deed": { title: "Mortgage Deed", category: "Property Documents", formName: "Mortgage Deed Form" },
-  "partition-deed": { title: "Partition Deed", category: "Property Documents", formName: "Partition Deed Form" },
-  "relinquishment-deed": { title: "Relinquishment Deed", category: "Property Documents", formName: "Relinquishment Deed Form" },
-  "settlement-deed": { title: "Settlement Deed", category: "Property Documents", formName: "Settlement Deed Form" },
-  "exchange-deed": { title: "Exchange Deed", category: "Property Documents", formName: "Exchange Deed Form" },
-  "rectification-deed": { title: "Rectification Deed", category: "Property Documents", formName: "Rectification Deed Form" },
-  "release-deed": { title: "Release Deed", category: "Property Documents", formName: "Release Deed Form" },
-  "conveyance-deed": { title: "Conveyance Deed", category: "Property Documents", formName: "Conveyance Deed Form" },
-  // Court
-  affidavit: { title: "Affidavit", category: "Court Documents", formName: "Affidavit Form" },
-  "legal-notice": { title: "Legal Notice", category: "Court Documents", formName: "Legal Notice Form" },
-  petition: { title: "Petition", category: "Court Documents", formName: "Petition Form" },
-  appeal: { title: "Appeal", category: "Court Documents", formName: "Appeal Form" },
-  "written-statement": { title: "Written Statement", category: "Court Documents", formName: "Written Statement Form" },
-  "counter-affidavit": { title: "Counter Affidavit", category: "Court Documents", formName: "Counter Affidavit Form" },
-  "caveat-petition": { title: "Caveat Petition", category: "Court Documents", formName: "Caveat Petition Form" },
-  "bail-application": { title: "Bail Application", category: "Court Documents", formName: "Bail Application Form" },
-  "writ-petition": { title: "Writ Petition", category: "Court Documents", formName: "Writ Petition Form" },
-  "revision-petition": { title: "Revision Petition", category: "Court Documents", formName: "Revision Petition Form" },
-  "review-petition": { title: "Review Petition", category: "Court Documents", formName: "Review Petition Form" },
-  memo: { title: "Memo", category: "Court Documents", formName: "Memo Form" },
-  vakalatnama: { title: "Vakalatnama", category: "Court Documents", formName: "Vakalatnama Form" },
-  // Business
-  "employment-agreement": { title: "Employment Agreement", category: "Business Agreements", formName: "Employment Agreement Form" },
-  "partnership-agreement": { title: "Partnership Agreement", category: "Business Agreements", formName: "Partnership Agreement Form" },
-  nda: { title: "Non-Disclosure Agreement", category: "Business Agreements", formName: "NDA Form" },
-  "service-agreement": { title: "Service Agreement", category: "Business Agreements", formName: "Service Agreement Form" },
-  "vendor-agreement": { title: "Vendor Agreement", category: "Business Agreements", formName: "Vendor Agreement Form" },
-  "consultancy-agreement": { title: "Consultancy Agreement", category: "Business Agreements", formName: "Consultancy Agreement Form" },
-  "franchise-agreement": { title: "Franchise Agreement", category: "Business Agreements", formName: "Franchise Agreement Form" },
-  mou: { title: "Memorandum of Understanding", category: "Business Agreements", formName: "MoU Form" },
-  "joint-venture-agreement": { title: "Joint Venture Agreement", category: "Business Agreements", formName: "Joint Venture Form" },
-  "shareholders-agreement": { title: "Shareholders Agreement", category: "Business Agreements", formName: "Shareholders Agreement Form" },
-  "software-development-agreement": { title: "Software Development Agreement", category: "Business Agreements", formName: "Software Development Agreement Form" },
-  // Personal
-  will: { title: "Will", category: "Personal Documents", formName: "Will Form" },
-  "power-of-attorney": { title: "Power of Attorney", category: "Personal Documents", formName: "Power of Attorney Form" },
-  declaration: { title: "Declaration", category: "Personal Documents", formName: "Declaration Form" },
-  "name-change-affidavit": { title: "Name Change Affidavit", category: "Personal Documents", formName: "Name Change Form" },
-  "marriage-affidavit": { title: "Marriage Affidavit", category: "Personal Documents", formName: "Marriage Affidavit Form" },
-  "divorce-settlement-agreement": { title: "Divorce Settlement Agreement", category: "Personal Documents", formName: "Divorce Settlement Form" },
-  "adoption-deed": { title: "Adoption Deed", category: "Personal Documents", formName: "Adoption Deed Form" },
-  "guardianship-declaration": { title: "Guardianship Declaration", category: "Personal Documents", formName: "Guardianship Form" },
-  // Family
-  "marriage-agreement": { title: "Marriage Agreement", category: "Family Documents", formName: "Marriage Agreement Form" },
-  "divorce-petition": { title: "Divorce Petition", category: "Family Documents", formName: "Divorce Petition Form" },
-  "child-custody-petition": { title: "Child Custody Petition", category: "Family Documents", formName: "Child Custody Form" },
-  "maintenance-petition": { title: "Maintenance Petition", category: "Family Documents", formName: "Maintenance Petition Form" },
-  "succession-certificate": { title: "Succession Certificate Application", category: "Family Documents", formName: "Succession Certificate Form" },
-  "family-settlement-deed": { title: "Family Settlement Deed", category: "Family Documents", formName: "Family Settlement Form" },
-  // Company
-  "board-resolution": { title: "Board Resolution", category: "Company Documents", formName: "Board Resolution Form" },
-  moa: { title: "Memorandum of Association", category: "Company Documents", formName: "MOA Form" },
-  aoa: { title: "Articles of Association", category: "Company Documents", formName: "AOA Form" },
-  "offer-letter": { title: "Employment Offer Letter", category: "Company Documents", formName: "Offer Letter Form" },
-  "appointment-letter": { title: "Appointment Letter", category: "Company Documents", formName: "Appointment Letter Form" },
-  "resignation-acceptance": { title: "Resignation Acceptance Letter", category: "Company Documents", formName: "Resignation Acceptance Form" },
-  "experience-certificate": { title: "Experience Certificate", category: "Company Documents", formName: "Experience Certificate Form" },
-};
-
+ 
+import {
+  loadConversations,
+  saveConversations,
+  getActiveId,
+  setActiveId,
+  newConversation,
+  timeBucket,
+  type Conversation,
+} from "@/lib/chat-store";
+ 
 export const Route = createFileRoute("/_workspace/draft/$slug")({
-  head: ({ params }) => {
-    const t = TEMPLATES[params.slug];
-    const title = t ? `${t.title} · JusticeLine AI` : "Legal Draft · JusticeLine AI";
-    return {
-      meta: [
-        { title },
-        { name: "description", content: t ? `Generate a professional ${t.title} with a guided form.` : "Guided legal draft." },
-        { property: "og:title", content: title },
-        { property: "og:description", content: t ? `${t.formName} — guided draft generation.` : "Guided legal draft." },
-      ],
-    };
-  },
-  component: PlaceholderDraftForm,
-  notFoundComponent: NotFoundTemplate,
+  head: () => ({
+    meta: [
+      { title: "AI Chat · JusticeLine AI" },
+      { name: "description", content: "Conversational legal research grounded in cited authority." },
+      { property: "og:title", content: "AI Legal Chat · JusticeLine AI" },
+      { property: "og:description", content: "Ask about Acts, Sections, and judgments." },
+    ],
+  }),
+  component: ChatPage,
 });
-
-const steps = [
-  { id: 1, title: "Parties", icon: User },
-  { id: 2, title: "Details", icon: Users },
-  { id: 3, title: "Terms", icon: Info },
-  { id: 4, title: "Review", icon: FileCheck },
+ 
+type JudgmentCard = {
+  id: string | number;
+ 
+  // Display fields
+  title: string;
+  citation: string;
+  court?: string;
+  year?: number | null;
+  principle?: string;
+  relevance?: string;
+ 
+  // Original JusticeLine judgment fields
+  Keycode?: number | null;
+  COURT?: string | null;
+  Judges?: string | null;
+  Bench?: string | number | null;
+  CaseNo?: string | null;
+  Appellant?: string | null;
+  Respondent?: string | null;
+  Headnote?: string | null;
+  HNote?: string | null;
+  Judgement?: string | null;
+  Actreferred?: string | null;
+  Date?: string | null;
+  Result?: string | null;
+  Advocates?: string | null;
+};
+ 
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  judgments?: JudgmentCard[];
+};
+ 
+type ModeId = "quick" | "deep-search" | "deep-thinking" | "deep-research";
+type ModeDef = {
+  id: ModeId;
+  icon: typeof Zap;
+  emoji: string;
+  title: string;
+  description: string;
+  bestFor?: string[];
+  examples?: string[];
+  time: string;
+  badge?: { label: string; tone: "default" | "recommended" | "premium" };
+};
+ 
+const MODES: ModeDef[] = [
+  {
+    id: "quick",
+    icon: Zap,
+    emoji: "⚡",
+    title: "Quick Answer",
+    description: "Concise, fast answers for straightforward legal questions.",
+    examples: ['"What is a Sale Deed?"', '"What is Section 138 NI Act?"'],
+    time: "2–5 seconds",
+    badge: { label: "Default", tone: "default" },
+  },
+  {
+    id: "deep-search",
+    icon: SearchCheck,
+    emoji: "🔎",
+    title: "Deep Search",
+    description: "Searches legal judgments, statutes, and legal references before answering.",
+    bestFor: ["Case law", "Judgment research", "Legal precedents"],
+    time: "10–20 seconds",
+  },
+  {
+    id: "deep-thinking",
+    icon: Brain,
+    emoji: "🧠",
+    title: "Deep Thinking",
+    description: "Detailed legal reasoning with comprehensive analysis.",
+    bestFor: ["Complex legal questions", "Legal interpretation", "Opinion drafting"],
+    time: "20–40 seconds",
+    badge: { label: "Recommended", tone: "recommended" },
+  },
+  {
+    id: "deep-research",
+    icon: Library,
+    emoji: "📚",
+    title: "Deep Research",
+    description:
+      "Advanced legal research across judgments, Acts, Sections, and multiple sources. Produces structured legal reports with citations.",
+    bestFor: ["Legal research", "Case preparation", "Legal opinions", "Research reports"],
+    time: "30–60 seconds",
+    badge: { label: "Premium", tone: "premium" },
+  },
 ];
-
-function PlaceholderDraftForm() {
-  const { slug } = Route.useParams();
-  const navigate = useNavigate();
-  const tpl = TEMPLATES[slug];
-  const [step, setStep] = useState(1);
-  const [agreed, setAgreed] = useState(false);
-
-  if (!tpl) return <NotFoundTemplate />;
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const form = e.currentTarget as HTMLFormElement;
-    const fd = new FormData(form);
-    const data: Record<string, string> = {};
-    fd.forEach((v, k) => { if (typeof v === "string") data[k] = v; });
-    import("@/lib/drafts-store").then(({ setCurrentDraft, saveFormData }) => {
-      saveFormData(slug, data);
-      setCurrentDraft({
-        slug,
-        title: tpl.title,
-        category: tpl.category,
-        data,
-        updatedAt: new Date().toISOString(),
-      });
-      navigate({ to: "/draft/preview" });
-    });
+ 
+ 
+ 
+const suggestions = [
+  { icon: Gavel, text: "Explain Section 498A IPC with recent judgments" },
+  { icon: BookOpen, text: "Summarise the Vishaka guidelines" },
+  { icon: FileText, text: "Draft a legal notice for cheque bounce under Section 138 NI Act" },
+  { icon: Scale, text: "Compare Kesavananda Bharati and Minerva Mills on basic structure" },
+];
+ 
+function ChatPage() {
+ 
+const [conversations, setConversations] = useState<Conversation[]>([]);
+const [activeId, setActiveIdState] = useState<string | null>(null);
+const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+const [input, setInput] = useState("");
+const [messages, setMessages] = useState<Msg[]>([]);
+const [selectedJudgment, setSelectedJudgment] =
+  useState<JudgmentCard | null>(null);
+const [pending, setPending] = useState(false);
+const [mode, setMode] = useState<ModeId>("deep-thinking");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState(""); // <-- ADD THIS LINE
+const scrollRef = useRef<HTMLDivElement>(null);
+ 
+const saveCurrentConversation = (
+  updatedMessages: Msg[],
+  conversationId?: string
+) => {
+  setConversations((current) => {
+    const id = conversationId ?? activeId;
+ 
+    // If there is no active conversation yet, create one
+    if (!id) {
+      const newChat = newConversation(mode);
+ 
+      const firstUserMessage =
+        updatedMessages.find((m) => m.role === "user")?.content ?? "New Chat";
+ 
+      newChat.title =
+        firstUserMessage.length > 50
+          ? firstUserMessage.slice(0, 50) + "…"
+          : firstUserMessage;
+ 
+      newChat.messages = updatedMessages;
+      newChat.updatedAt = Date.now();
+ 
+      const updatedList = [newChat, ...current];
+ 
+      setActiveIdState(newChat.id);
+      setActiveId(newChat.id);
+ 
+      saveConversations(updatedList);
+ 
+      return updatedList;
+    }
+ 
+    // Update existing conversation
+    const updatedList = current.map((conversation) =>
+      conversation.id === id
+        ? {
+            ...conversation,
+            messages: updatedMessages,
+            updatedAt: Date.now(),
+            mode,
+          }
+        : conversation
+    );
+ 
+    saveConversations(updatedList);
+ 
+    return updatedList;
+  });
+};
+ const deleteConversation = (conversationId: string) => {
+  setConversations((current) => {
+    const updatedList = current.filter(
+      (conversation) => conversation.id !== conversationId
+    );
+ 
+    saveConversations(updatedList);
+ 
+    return updatedList;
+  });
+ 
+  if (activeId === conversationId) {
+    setActiveIdState(null);
+    setActiveId(null);
+    setMessages([]);
+  }
+ 
+  setOpenMenuId(null);
+};
+useEffect(() => {
+  const saved = loadConversations();
+ 
+  setConversations(saved);
+ 
+  const savedActiveId = getActiveId();
+ 
+  if (savedActiveId && saved.some((c) => c.id === savedActiveId)) {
+    setActiveIdState(savedActiveId);
+ 
+    const activeConversation = saved.find(
+      (c) => c.id === savedActiveId
+    );
+ 
+    if (activeConversation) {
+      setMessages(activeConversation.messages as Msg[]);
+      setMode(activeConversation.mode as ModeId);
+    }
+  }
+}, []);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, pending]);
+ 
+const send = async (text?: string) => {
+  const content = (text ?? input).trim();
+  if (!content) return;
+ 
+  const userMessage: Msg = {
+    role: "user",
+    content,
   };
-
-
+ 
+  const messagesAfterUser = [...messages, userMessage];
+ 
+  setMessages(messagesAfterUser);
+  setInput("");
+  setPending(true);
+ 
+  // Save the user's question immediately
+ 
+  try {
+   const res = await fetch(`/api/assistant`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    question: content,
+    mode,
+    history: messages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  }),
+});
+ 
+    const data = await res.json();
+ 
+    if (!res.ok || data?.error) {
+      const assistantMessage: Msg = {
+        role: "assistant",
+        content:
+          data?.error ??
+          "Unable to fetch answer from JusticeLine AI.",
+     
+      };
+ 
+      const finalMessages = [
+        ...messagesAfterUser,
+        assistantMessage,
+      ];
+ 
+      setMessages(finalMessages);
+ 
+      // Save user's question + error response
+      saveCurrentConversation(finalMessages);
+    } else {
+      const judgments: JudgmentCard[] = Array.isArray(data.judgments)
+  ? data.judgments
+  : [];
+ 
+console.log("[CHAT] Related judgments received:", judgments.length);
+console.log("[CHAT] Related judgments:", judgments);
+ 
+const assistantMessage: Msg = {
+  role: "assistant",
+  content: data.answer ?? "",
+  judgments,
+};
+ 
+      const finalMessages = [
+        ...messagesAfterUser,
+        assistantMessage,
+      ];
+ 
+      setMessages(finalMessages);
+ 
+      // Save user's question + AI answer
+      saveCurrentConversation(finalMessages);
+    }
+  } catch (err) {
+    const assistantMessage: Msg = {
+      role: "assistant",
+      content: "Unable to reach JusticeLine AI.",
+     
+    };
+ 
+    const finalMessages = [
+      ...messagesAfterUser,
+      assistantMessage,
+    ];
+ 
+    setMessages(finalMessages);
+ 
+    // Save conversation even if API fails
+    saveCurrentConversation(finalMessages);
+  } finally {
+    setPending(false);
+  }
+};
+ 
+  const empty = messages.length === 0;
+  const currentMode = MODES.find((m) => m.id === mode)!;
+ 
   return (
-    <>
-      <AppHeader title={tpl.title} subtitle={`${tpl.category} · Guided draft`} />
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-4xl">
-          {/* Stepper */}
-          <ol className="mb-8 flex flex-wrap items-center gap-y-3">
-            {steps.map((s, idx) => {
-              const done = step > s.id;
-              const active = step === s.id;
-              return (
-                <li key={s.id} className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setStep(s.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                      done && "border-primary bg-primary text-primary-foreground",
-                      active && "border-primary bg-primary/5 text-primary",
-                      !done && !active && "border-border text-muted-foreground hover:bg-secondary",
-                    )}
-                  >
-                    <span
+    <div className="flex h-screen min-h-0 flex-1 overflow-hidden">
+      {/* Chat sidebar */}
+      <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-border bg-secondary/30 lg:flex">
+        <div className="p-4">
+  <Button
+  onClick={() => {
+    setActiveIdState(null);
+    setActiveId(null);
+    setMessages([]);
+    setOpenMenuId(null);
+  }}
+  className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
+>
+  <Plus className="h-4 w-4" /> New chat
+</Button>
+          {/* REPLACE START */}
+          <div className="relative mt-3">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search conversations"
+              className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-xs outline-none focus:border-primary/40"
+            />
+          </div>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
+          {["Today", "Yesterday", "Last week"].map((group) => {
+            const filtered = conversations.filter(
+              (c) =>
+                timeBucket(c.updatedAt) === group &&
+                c.title.toLowerCase().includes(searchFilter.toLowerCase())
+            );
+ 
+            if (filtered.length === 0) return null;
+ 
+            return (
+              <div key={group}>
+                <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {group}
+                </div>
+                <div className="space-y-0.5">
+                  {filtered.map((c) => (
+                    <div
+                      key={c.id}
                       className={cn(
-                        "grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold",
-                        done
-                          ? "bg-primary-foreground text-primary"
-                          : active
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-muted-foreground",
+                        "group relative flex w-full items-center rounded-md transition-colors",
+                        activeId === c.id
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
                       )}
                     >
-                      {done ? <Check className="h-3 w-3" /> : s.id}
+                      <button
+                        onClick={() => {
+                          const selectedConversation = conversations.find(
+                            (conversation) => conversation.id === c.id
+                          );
+                          if (!selectedConversation) return;
+ 
+                          setActiveIdState(selectedConversation.id);
+                          setActiveId(selectedConversation.id);
+                          setMessages(selectedConversation.messages as Msg[]);
+                          setMode(selectedConversation.mode as ModeId);
+                          setOpenMenuId(null);
+                        }}
+                        className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left text-xs"
+                      >
+                        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span className="line-clamp-2 leading-snug">{c.title}</span>
+                      </button>
+ 
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === c.id ? null : c.id);
+                        }}
+                        className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100"
+                        aria-label="Conversation options"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+ 
+                      {openMenuId === c.id && (
+                        <div className="absolute right-1 top-9 z-50 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => deleteConversation(c.id)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-destructive transition-colors hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+     
+      </aside>
+ 
+      {/* Main chat */}
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold">Section 138 NI Act — recent SC interpretation</h1>
+            <p className="text-xs text-muted-foreground">JusticeLine AI · Grounded in Indian case law</p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live · GPT-4 legal
+          </div>
+        </div>
+ 
+        <div
+  ref={scrollRef}
+  className="flex-1 overflow-y-auto pt-0"
+>
+          {empty ? (
+            <div className="mx-auto max-w-2xl px-4 pt-4 pb-4 text-center">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-gradient shadow-premium">
+                <Sparkles className="h-6 w-6 text-gold" />
+              </div>
+              <h2 className="mt-6 font-serif text-2xl font-semibold">How can I help with your research?</h2>
+             
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-5 py-2.5 text-sm font-medium text-white shadow-premium transition-transform hover:-translate-y-0.5"
+                >
+                  <HelpCircle className="h-4 w-4 text-gold" />
+                  Ask a Question
+                </button>
+              </div>
+<div className="mt-5 grid gap-3 sm:grid-cols-2">                {suggestions.map((s) => (
+                  <button
+                    key={s.text}
+                    onClick={() => send(s.text)}
+                    className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left text-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elegant"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground">
+                      <s.icon className="h-4 w-4" />
                     </span>
-                    {s.title}
+                    <span className="text-foreground">{s.text}</span>
                   </button>
-                  {idx < steps.length - 1 && <span className="mx-2 h-px w-6 bg-border sm:w-10" />}
-                </li>
-              );
-            })}
-          </ol>
-
-          <form
-            onSubmit={onSubmit}
-            className="overflow-hidden rounded-2xl border border-border bg-card shadow-elegant"
-          >
-            <div className="border-b border-border bg-secondary/40 px-6 py-4">
-              <h2 className="font-serif text-lg font-semibold">
-                Section {step}: {steps[step - 1].title}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {tpl.formName} · Detailed fields coming soon. Placeholder inputs shown below.
-              </p>
-            </div>
-
-            <div className="space-y-5 p-6 sm:p-8">
-              {step === 1 && (
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <PlaceField name="sellerName" label="First Party — Full Name" placeholder="Full legal name" />
-                  <PlaceField name="sellerPhone" label="First Party — Contact" placeholder="Phone / Email" />
-                  <PlaceField name="buyerName" label="Second Party — Full Name" placeholder="Full legal name" />
-                  <PlaceField name="buyerPhone" label="Second Party — Contact" placeholder="Phone / Email" />
-                  <PlaceField
-                    className="sm:col-span-2"
-                    name="sellerAddress"
-                    label="First Party Address"
-                    placeholder="Full address"
-                  />
-                  <PlaceField
-                    className="sm:col-span-2"
-                    name="buyerAddress"
-                    label="Second Party Address"
-                    placeholder="Full address"
-                  />
-                </div>
-              )}
-              {step === 2 && (
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <PlaceField name="propertyType" label="Subject / Purpose" placeholder={`Purpose of ${tpl.title}`} />
-                  <PlaceField name="dateOfSale" label="Effective Date" type="date" />
-                  <PlaceField
-                    className="sm:col-span-2"
-                    name="propertyAddress"
-                    label="Description"
-                    placeholder={`Brief description related to ${tpl.title}`}
-                  />
-                  <PlaceField name="district" label="Jurisdiction (City / District)" placeholder="e.g. Mumbai" />
-                  <PlaceField name="state" label="State" placeholder="e.g. Maharashtra" />
-                </div>
-              )}
-              {step === 3 && (
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <PlaceField
-                    className="sm:col-span-2"
-                    name="keyTerms"
-                    label="Key Terms & Conditions"
-                    placeholder="Enter the primary terms"
-                  />
-                  <PlaceField name="saleAmount" label="Consideration / Value (₹)" placeholder="0" />
-                  <PlaceField name="duration" label="Duration / Validity" placeholder="e.g. 11 months" />
-                  <PlaceField
-                    className="sm:col-span-2"
-                    name="additionalClauses"
-                    label="Additional Clauses"
-                    placeholder="Any special clauses to include"
-                  />
-                </div>
-              )}
-              {step === 4 && (
-                <div className="space-y-5">
-                  <div className="flex items-start gap-3 rounded-xl border border-border bg-secondary/40 p-4">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/5 text-primary">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium">Review {tpl.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Confirm the details entered above. JusticeLine AI will assemble a
-                        professionally formatted draft ready for legal review.
-                      </p>
-                    </div>
-                  </div>
-                  <label className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-4 text-sm">
-                    <Checkbox
-                      checked={agreed}
-                      onCheckedChange={(v) => setAgreed(v === true)}
-                      className="mt-0.5"
-                    />
-                    <span className="text-muted-foreground">
-                      I declare that the information provided is true to the best of my knowledge
-                      and authorise JusticeLine AI to generate this {tpl.title} draft, subject to
-                      legal review before use.
-                    </span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/30 px-6 py-4">
-              <Link to="/draft">
-                <Button type="button" variant="ghost">
-                  Cancel
-                </Button>
-              </Link>
-              <div className="flex gap-2">
-                {step > 1 && (
-                  <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
-                    <ChevronLeft className="mr-1 h-4 w-4" /> Back
-                  </Button>
-                )}
-                {step < steps.length ? (
-                  <Button
-                    type="button"
-                    onClick={() => setStep((s) => Math.min(steps.length, s + 1))}
-                    className="bg-brand-gradient text-white hover:opacity-95"
-                  >
-                    Continue <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={!agreed}
-                    className="bg-brand-gradient text-white hover:opacity-95 disabled:opacity-50"
-                  >
-                    Generate Draft
-                  </Button>
-                )}
+ 
+                ))}
               </div>
             </div>
-          </form>
+          ) : (
+            <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
+              {messages.map((m, i) => (
+                <div key={i} className={cn("flex gap-4", m.role === "user" && "justify-end")}>
+                  {m.role === "assistant" && (
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-gold">
+                      <Scale className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className={cn("min-w-0 max-w-[85%]", m.role === "user" ? "" : "flex-1")}>
+                    {m.role === "user" ? (
+                      <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
+                        {m.content}
+                      </div>
+                    ) : (
+                      <div className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground">
+                        <ReactMarkdown
+  components={{
+    h2: ({ children }) => (
+      <h2 className="mb-3 mt-6 text-lg font-semibold text-foreground first:mt-0">
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => (
+      <h3 className="mb-2 mt-5 text-base font-semibold text-foreground">
+        {children}
+      </h3>
+    ),
+    p: ({ children }) => (
+      <p className="mb-3 leading-7 text-foreground">
+        {children}
+      </p>
+    ),
+    ul: ({ children }) => (
+      <ul className="mb-4 ml-5 list-disc space-y-1.5">
+        {children}
+      </ul>
+    ),
+    ol: ({ children }) => (
+      <ol className="mb-4 ml-5 list-decimal space-y-1.5">
+        {children}
+      </ol>
+    ),
+    li: ({ children }) => (
+      <li className="leading-7">
+        {children}
+      </li>
+    ),
+    strong: ({ children }) => (
+      <strong className="font-semibold text-foreground">
+        {children}
+      </strong>
+    ),
+  }}
+>
+  {m.content}
+</ReactMarkdown>
+{m.judgments && m.judgments.length > 0 && (
+  <div className="mt-6">
+    <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
+      Related Judgments
+    </div>
+ 
+    <div className="space-y-6">
+      {m.judgments.map((judgment) => {
+        const caseName =
+          judgment.title ||
+          (judgment.Appellant && judgment.Respondent
+            ? `${judgment.Appellant} v. ${judgment.Respondent}`
+            : judgment.CaseNo || "Judgment");
+ 
+        return (
+          <div
+            key={String(judgment.id)}
+            className="space-y-2"
+          >
+            {/* CASE NAME */}
+            <button
+  type="button"
+  onClick={() => setSelectedJudgment(judgment)}
+  className="group inline-flex items-center gap-1.5 text-left text-base font-bold text-foreground transition-colors duration-200 hover:text-[#c89b3c]"
+>
+  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:text-[#c89b3c] group-hover:decoration-[#c89b3c] group-hover:decoration-2">
+    {caseName}
+  </span>
+ 
+  <FileText
+    className="h-4 w-4 shrink-0 text-[#c89b3c] opacity-70 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100"
+  />
+</button>
+ 
+            {/* CITATION / PRINCIPLE / RELEVANCE */}
+           <ul className="list-disc space-y-2 pl-5 text-sm leading-7 text-foreground">
+  {judgment.citation && (
+    <li>
+      <span className="font-semibold">Citation:</span>{" "}
+      {judgment.citation}
+    </li>
+  )}
+ 
+  {judgment.principle && (
+    <li>
+      <span className="font-semibold">Principle:</span>{" "}
+      {judgment.principle}
+    </li>
+  )}
+ 
+  {judgment.relevance && (
+    <li>
+      <span className="font-semibold">Relevance:</span>{" "}
+      {judgment.relevance}
+    </li>
+  )}
+</ul>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+                     
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pending && (
+                <div className="flex gap-4">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-gold">
+                    <Scale className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-2">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:120ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:240ms]" />
+                    <span className="ml-2 text-xs text-muted-foreground">Reviewing case law…</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </main>
-    </>
-  );
-}
-
-function PlaceField({
-  label,
-  name,
-  placeholder,
-  type = "text",
-  className,
-}: {
-  label: string;
-  name: string;
-  placeholder?: string;
-  type?: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} placeholder={placeholder} />
+ 
+ 
+ {/* Composer */}
+        <div className="border-t border-border bg-background p-4 sm:p-6">
+          <div className="mx-auto max-w-3xl">
+            {/* Current mode indicator */}
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Current Mode
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="group inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:border-primary/30 hover:bg-primary/5">
+                    <span aria-hidden>{currentMode.emoji}</span>
+                    <span className="text-foreground">{currentMode.title}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {MODES.map((m) => (
+                    <DropdownMenuItem
+                      key={m.id}
+                      onClick={() => setMode(m.id)}
+                      className="flex items-start gap-2 py-2"
+                    >
+                      <span className="mt-0.5" aria-hidden>{m.emoji}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5 text-sm font-medium">
+                          {m.title}
+                          {m.id === mode && <Check className="h-3.5 w-3.5 text-primary" />}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">{m.time}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <form
+              onSubmit={(e) => { e.preventDefault(); send(); }}
+              className="relative rounded-2xl border border-border bg-card shadow-elegant transition-shadow focus-within:shadow-premium"
+            >
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                }}
+                placeholder="Ask a legal question, cite a section, or paste facts…"
+                rows={1}
+                className="block w-full resize-none rounded-2xl bg-transparent px-4 py-3.5 pr-16 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <div className="flex items-center justify-between border-t border-border px-3 py-2">
+                <div className="flex items-center gap-1">
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8">
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8">
+                    <Mic className="h-4 w-4" />
+                  </Button>
+                  <span className="ml-1 text-[11px] text-muted-foreground">
+                    Grounded in Indian case law · Verify before filing
+                  </span>
+                </div>
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!input.trim()}
+                  className="h-8 w-8 bg-brand-gradient text-white hover:opacity-95 disabled:opacity-40"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+ 
+      <JudgmentPreviewDialog
+  judgment={selectedJudgment}
+  onClose={() => {
+    setSelectedJudgment(null);
+  }}
+/>
+ 
+<ResponseModeDialog
+  open={modalOpen}
+  onOpenChange={setModalOpen}
+  currentMode={mode}
+  onContinue={(next) => {
+    setMode(next);
+    setModalOpen(false);
+  }}
+/>
     </div>
   );
 }
-
-function NotFoundTemplate() {
+ 
+function ResponseModeDialog({
+  open,
+  onOpenChange,
+  currentMode,
+  onContinue,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  currentMode: ModeId;
+  onContinue: (m: ModeId) => void;
+}) {
+  const [selected, setSelected] = useState<ModeId | null>(null);
+ 
+  useEffect(() => {
+    if (open) setSelected(currentMode);
+  }, [open, currentMode]);
+ 
   return (
-    <>
-      <AppHeader title="Template not found" subtitle="Legal Draft" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-8 text-center shadow-elegant">
-          <h2 className="font-serif text-xl font-semibold">This template is not available</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The requested draft template does not exist yet.
-          </p>
-          <Link to="/draft">
-            <Button className="mt-6 bg-brand-gradient text-white hover:opacity-95">
-              Back to Templates
-            </Button>
-          </Link>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl overflow-hidden p-0">
+        <div className="border-b border-border bg-brand-gradient px-6 py-5 text-white">
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className="font-serif text-xl font-semibold text-white">
+              AI Response Mode
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Choose how JusticeLine AI should process your legal query.
+            </DialogDescription>
+          </DialogHeader>
         </div>
-      </main>
-    </>
+ 
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto px-6 py-5">
+          {MODES.map((m) => {
+            const active = selected === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setSelected(m.id)}
+                className={cn(
+                  "group flex w-full items-start gap-4 rounded-xl border p-4 text-left transition-all",
+                  active
+                    ? "border-primary bg-primary/5 shadow-elegant"
+                    : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elegant",
+                )}
+              >
+                <div
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg",
+                    active ? "bg-brand-gradient text-gold" : "bg-primary/5 text-primary",
+                  )}
+                  aria-hidden
+                >
+                  <m.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-sm font-semibold text-foreground">
+                      <span className="mr-1.5" aria-hidden>{m.emoji}</span>
+                      {m.title}
+                    </div>
+                    {m.badge && <ModeBadge tone={m.badge.tone} label={m.badge.label} />}
+                    <span className="ml-auto text-[11px] text-muted-foreground">
+                      Est. {m.time}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {m.description}
+                  </p>
+                  {m.examples && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {m.examples.map((e) => (
+                        <span
+                          key={e}
+                          className="rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {e}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {m.bestFor && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Best for:
+                      </span>
+                      {m.bestFor.map((b) => (
+                        <span
+                          key={b}
+                          className="rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    "mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full border",
+                    active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                  )}
+                  aria-hidden
+                >
+                  {active && <Check className="h-3 w-3" />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+ 
+        <DialogFooter className="gap-2 border-t border-border bg-secondary/40 px-6 py-4 sm:justify-end">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!selected}
+            onClick={() => selected && onContinue(selected)}
+            className="bg-brand-gradient text-white hover:opacity-95 disabled:opacity-50"
+          >
+            Continue
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
+ 
+function ModeBadge({ tone, label }: { tone: "default" | "recommended" | "premium"; label: string }) {
+  const cls =
+    tone === "recommended"
+      ? "bg-primary/10 text-primary border-primary/20"
+      : tone === "premium"
+        ? "bg-gold/15 text-[#8a6408] border-gold/30"
+        : "bg-secondary text-muted-foreground border-border";
+  return (
+    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", cls)}>
+      {label}
+    </span>
+  );
+}
+ 
