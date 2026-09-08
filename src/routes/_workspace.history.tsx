@@ -6,8 +6,6 @@ import {
   FileText,
   MoreHorizontal,
   Trash2,
-  Calendar,
-  Clock,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
@@ -25,7 +23,19 @@ import {
 } from "@/lib/chat-store";
 import { cn } from "@/lib/utils";
  
+type FilterType = "all" | "chat" | "draft";
+ 
+interface HistorySearch {
+  filter?: FilterType;
+}
+ 
 export const Route = createFileRoute("/_workspace/history")({
+  validateSearch: (search: Record<string, unknown>): HistorySearch => {
+    const filter = search.filter as FilterType;
+    return {
+      filter: ["all", "chat", "draft"].includes(filter) ? filter : "all",
+    };
+  },
   head: () => ({
     meta: [
       { title: "History · JusticeLine AI" },
@@ -35,31 +45,83 @@ export const Route = createFileRoute("/_workspace/history")({
   component: HistoryPage,
 });
  
-type FilterType = "all" | "chat" | "draft";
- 
 interface UnifiedHistoryItem {
   id: string;
   title: string;
   type: "chat" | "draft";
+  modeName?: string;
   timestamp: number;
   route: string;
 }
  
+const MODE_LABELS: Record<string, string> = {
+  quick: "Quick Answer",
+  "deep-search": "Deep Search",
+  "deep-thinking": "Deep Thinking",
+  "deep-research": "Deep Research",
+};
+ 
 export function HistoryPage() {
   const navigate = useNavigate();
+  const searchParams = Route.useSearch();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>(
+    searchParams.filter || "all"
+  );
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [draftsList, setDraftsList] = useState<UnifiedHistoryItem[]>([
+    {
+      id: "draft-1",
+      title: "Sale Deed — Kapoor Property Transfer",
+      type: "draft",
+      timestamp: Date.now() - 1000 * 60 * 60 * 3,
+      route: "/saved",
+    },
+    {
+      id: "draft-2",
+      title: "Legal Notice for Recovery of ₹4.2 Lakh",
+      type: "draft",
+      timestamp: Date.now() - 1000 * 60 * 60 * 28,
+      route: "/saved",
+    },
+    {
+      id: "draft-3",
+      title: "Commercial Lease Agreement",
+      type: "draft",
+      timestamp: Date.now() - 1000 * 60 * 60 * 72,
+      route: "/saved",
+    },
+  ]);
+ 
+  // Sync state if URL query param changes
+  useEffect(() => {
+    if (searchParams.filter) {
+      setSelectedFilter(searchParams.filter);
+    }
+  }, [searchParams.filter]);
  
   useEffect(() => {
     setConversations(loadConversations());
   }, []);
  
-  const handleDeleteChat = (id: string, e: React.MouseEvent) => {
+const handleFilterChange = (filter: FilterType) => {
+  setSelectedFilter(filter);
+
+  navigate({
+    search: { filter },
+  });
+};
+ 
+  // Universal Delete Handler for both AI Chats and Drafts
+  const handleDeleteItem = (item: UnifiedHistoryItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = conversations.filter((c) => c.id !== id);
-    setConversations(updated);
-    saveConversations(updated);
+    if (item.type === "chat") {
+      const updated = conversations.filter((c) => c.id !== item.id);
+      setConversations(updated);
+      saveConversations(updated);
+    } else {
+      setDraftsList((current) => current.filter((d) => d.id !== item.id));
+    }
   };
  
   const handleOpenItem = (item: UnifiedHistoryItem) => {
@@ -71,45 +133,25 @@ export function HistoryPage() {
     }
   };
  
-  // Convert real chats and sample drafts into a combined list
+  // Combine real chats with modes and drafts
   const historyItems: UnifiedHistoryItem[] = useMemo(() => {
-    const chats: UnifiedHistoryItem[] = conversations.map((c) => ({
-      id: c.id,
-      title: c.title || "Untitled Conversation",
-      type: "chat",
-      timestamp: c.updatedAt || c.createdAt || Date.now(),
-      route: "/chat",
-    }));
+    const chats: UnifiedHistoryItem[] = conversations.map((c) => {
+      const modeKey = (c.mode as string) || "deep-thinking";
+      const resolvedMode = MODE_LABELS[modeKey] || modeKey;
  
-    // Placeholder drafts (or loaded from drafts-store if available)
-    const mockDrafts: UnifiedHistoryItem[] = [
-      {
-        id: "draft-1",
-        title: "Sale Deed — Kapoor Property Transfer",
-        type: "draft",
-        timestamp: Date.now() - 1000 * 60 * 60 * 3,
-        route: "/saved",
-      },
-      {
-        id: "draft-2",
-        title: "Legal Notice for Recovery of ₹4.2 Lakh",
-        type: "draft",
-        timestamp: Date.now() - 1000 * 60 * 60 * 28,
-        route: "/saved",
-      },
-      {
-        id: "draft-3",
-        title: "Commercial Lease Agreement",
-        type: "draft",
-        timestamp: Date.now() - 1000 * 60 * 60 * 72,
-        route: "/saved",
-      },
-    ];
+      return {
+        id: c.id,
+        title: c.title || "Untitled Conversation",
+        type: "chat",
+        modeName: resolvedMode,
+        timestamp: c.updatedAt || Date.now(),
+        route: "/chat",
+      };
+    });
  
-    return [...chats, ...mockDrafts].sort((a, b) => b.timestamp - a.timestamp);
-  }, [conversations]);
+    return [...chats, ...draftsList].sort((a, b) => b.timestamp - a.timestamp);
+  }, [conversations, draftsList]);
  
-  // Apply search query and category filter
   const filteredItems = useMemo(() => {
     return historyItems.filter((item) => {
       const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -122,41 +164,43 @@ export function HistoryPage() {
     });
   }, [historyItems, searchQuery, selectedFilter]);
  
-  // Group items by relative period (Today, Yesterday, Older)
-  const groupedItems = useMemo(() => {
-    const groups: { [key: string]: UnifiedHistoryItem[] } = {};
-    const now = new Date();
+  // Formats date heading: "Tuesday, 1 September 2026"
+  const formatDateHeader = (timestamp: number) => {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(timestamp));
+  };
+ 
+  // Formats time: "16:49" (24-Hour)
+  const formatTimeOnly = (timestamp: number) => {
+    return new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(timestamp));
+  };
+ 
+  const groupedByDate = useMemo(() => {
+    const groups: { [dateKey: string]: { dateText: string; items: UnifiedHistoryItem[] } } = {};
  
     filteredItems.forEach((item) => {
       const d = new Date(item.timestamp);
-      const isToday = d.toDateString() === now.toDateString();
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const isYesterday = d.toDateString() === yesterday.toDateString();
+      const dateKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
  
-      let groupKey = "Earlier";
-      if (isToday) groupKey = "Today";
-      else if (isYesterday) groupKey = "Yesterday";
- 
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(item);
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          dateText: formatDateHeader(item.timestamp),
+          items: [],
+        };
+      }
+      groups[dateKey].items.push(item);
     });
  
-    return groups;
+    return Object.values(groups);
   }, [filteredItems]);
- 
-  const formatDateTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = date.toLocaleString("en-US", { month: "short" });
-    const year = date.getFullYear();
-    const time = date.toLocaleString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-    return `${day} ${month} ${year} • ${time}`;
-  };
  
   return (
     <>
@@ -184,7 +228,7 @@ export function HistoryPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setSelectedFilter(f.id)}
+                onClick={() => handleFilterChange(f.id)}
                 className={cn(
                   "rounded-full px-4 py-1.5 text-xs font-medium transition-all",
                   selectedFilter === f.id
@@ -197,85 +241,88 @@ export function HistoryPage() {
             ))}
           </div>
  
-          {/* History Item Lists */}
-          <div className="space-y-8 pt-2">
-            {Object.keys(groupedItems).length === 0 ? (
+          {/* Grouped History List */}
+          <div className="space-y-7 pt-2">
+            {groupedByDate.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-                No matching records found.
+                No matching history found.
               </div>
             ) : (
-              ["Today", "Yesterday", "Earlier"].map((label) => {
-                const items = groupedItems[label];
-                if (!items || items.length === 0) return null;
+              groupedByDate.map((group) => (
+                <section key={group.dateText}>
+                  {/* Date Header */}
+                  <h3 className="mb-3 px-1 font-serif text-sm font-semibold tracking-tight text-foreground sm:text-base">
+                    {group.dateText}
+                  </h3>
  
-                return (
-                  <section key={label}>
-                    <h3 className="mb-3 px-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                      {label}
-                    </h3>
-                    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-                      {items.map((item, idx) => (
-                        <div
-                          key={item.id}
-                          onClick={() => handleOpenItem(item)}
-                          className={cn(
-                            "group flex cursor-pointer items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-secondary/40",
-                            idx !== 0 && "border-t border-border"
-                          )}
-                        >
-                          <div className="flex min-w-0 items-center gap-3.5">
-                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/5 text-primary">
+                  <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                    {group.items.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        onClick={() => handleOpenItem(item)}
+                        className={cn(
+                          "group flex cursor-pointer items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-secondary/40",
+                          idx !== 0 && "border-t border-border"
+                        )}
+                      >
+                        {/* Title and Category/Search Mode */}
+                        <div className="flex min-w-0 items-center gap-3.5">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/5 text-primary">
+                            {item.type === "chat" ? (
+                              <MessageCircle className="h-4 w-4" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-foreground">
+                              {item.title}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
                               {item.type === "chat" ? (
-                                <MessageCircle className="h-4 w-4" />
+                                <span>
+                                  AI Chat
+                                  {item.modeName && ` · ${item.modeName}`}
+                                </span>
                               ) : (
-                                <FileText className="h-4 w-4" />
+                                <span>Legal Draft</span>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-foreground">
-                                {item.title}
-                              </div>
-                              <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                <span className="capitalize font-semibold text-[11px]">
-                                  {item.type === "chat" ? "AI Chat" : "Legal Draft"}
-                                </span>
-                                <span>•</span>
-                                <span className="flex items-center gap-1 font-mono text-[11px]">
-                                  {formatDateTime(item.timestamp)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
- 
-                          <div className="flex items-center gap-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {item.type === "chat" && (
-                                  <DropdownMenuItem
-                                    onClick={(e) => handleDeleteChat(item.id, e)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })
+ 
+                        {/* Time and Dropdown Options */}
+                        <div className="flex items-center gap-4">
+                          {/* Larger Time Font */}
+                          <span className="font-mono text-mg font-medium tracking-normal text-muted-foreground">
+                            {formatTimeOnly(item.timestamp)}
+                          </span>
+ 
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteItem(item, e)}
+                                className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
             )}
           </div>
         </div>
@@ -283,4 +330,3 @@ export function HistoryPage() {
     </>
   );
 }
- 

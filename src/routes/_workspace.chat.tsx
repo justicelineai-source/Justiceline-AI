@@ -7,8 +7,9 @@ import {
   Search,
   Paperclip,
   Mic,
-  ArrowUp,
-  Sparkles,
+ ArrowUp,
+ArrowUpRight,
+Sparkles,
   Scale,
   MessageCircle,
   BookOpen,
@@ -21,8 +22,10 @@ import {
   Check,
     ChevronDown,
   HelpCircle,
-  MoreHorizontal,
+    MoreHorizontal,
   Trash2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
+ 
 import {
   loadConversations,
   saveConversations,
@@ -65,7 +68,7 @@ export const Route = createFileRoute("/_workspace/chat")({
  
 type JudgmentCard = {
   id: string | number;
-
+ 
   // Display fields
   title: string;
   citation: string;
@@ -73,7 +76,7 @@ type JudgmentCard = {
   year?: number | null;
   principle?: string;
   relevance?: string;
-
+ 
   // Original JusticeLine judgment fields
   Keycode?: number | null;
   COURT?: string | null;
@@ -163,10 +166,11 @@ const suggestions = [
 ];
  
 function ChatPage() {
-  
+ 
 const [conversations, setConversations] = useState<Conversation[]>([]);
 const [activeId, setActiveIdState] = useState<string | null>(null);
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
 const [input, setInput] = useState("");
 const [messages, setMessages] = useState<Msg[]>([]);
 const [selectedJudgment, setSelectedJudgment] =
@@ -174,6 +178,7 @@ const [selectedJudgment, setSelectedJudgment] =
 const [pending, setPending] = useState(false);
 const [mode, setMode] = useState<ModeId>("deep-thinking");
   const [modalOpen, setModalOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState(""); // <-- ADD THIS LINE
 const scrollRef = useRef<HTMLDivElement>(null);
  
 const saveCurrentConversation = (
@@ -307,7 +312,7 @@ const send = async (text?: string) => {
         content:
           data?.error ??
           "Unable to fetch answer from JusticeLine AI.",
-      
+     
       };
  
       const finalMessages = [
@@ -347,7 +352,7 @@ const assistantMessage: Msg = {
     const assistantMessage: Msg = {
       role: "assistant",
       content: "Unable to reach JusticeLine AI.",
-      
+     
     };
  
     const finalMessages = [
@@ -369,114 +374,158 @@ const assistantMessage: Msg = {
  
   return (
     <div className="flex h-screen min-h-0 flex-1 overflow-hidden">
-      {/* Chat sidebar */}
-      <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-border bg-secondary/30 lg:flex">
-        <div className="p-4">
-  <Button
-  onClick={() => {
-    setActiveIdState(null);
-    setActiveId(null);
-    setMessages([]);
-    setOpenMenuId(null);
-  }}
-  className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
->
-  <Plus className="h-4 w-4" /> New chat
-</Button>
+     {/* Chat sidebar */}
+{chatSidebarOpen && (
+  <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
+  <div className="p-4">
+
+    <div className="mb-3 flex items-center justify-end">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => setChatSidebarOpen(false)}
+        className="h-8 w-8"
+        aria-label="Close chat history"
+      >
+        <PanelLeftClose className="h-5 w-5" />
+      </Button>
+    </div>
+
+    <Button
+      onClick={() => {
+        setActiveIdState(null);
+        setActiveId(null);
+        setMessages([]);
+        setOpenMenuId(null);
+      }}
+      className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
+    >
+      <Plus className="h-4 w-4" />
+      New chat
+    </Button>
+          {/* REPLACE START */}
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Search conversations"
               className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-xs outline-none focus:border-primary/40"
             />
           </div>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
-          {["Today", "Yesterday", "Last week"].map((group) => (
-            <div key={group}>
-              <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                {group}
+          {["Today", "Yesterday", "Last week"].map((group) => {
+            const filtered = conversations.filter(
+              (c) =>
+                timeBucket(c.updatedAt) === group &&
+                c.title.toLowerCase().includes(searchFilter.toLowerCase())
+            );
+ 
+            if (filtered.length === 0) return null;
+ 
+            return (
+              <div key={group}>
+                <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {group}
+                </div>
+                <div className="space-y-0.5">
+                  {filtered.map((c) => (
+                    <div
+                      key={c.id}
+                      className={cn(
+                        "group relative flex w-full items-center rounded-md transition-colors",
+                        activeId === c.id
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                      )}
+                    >
+                      <button
+                        onClick={() => {
+                          const selectedConversation = conversations.find(
+                            (conversation) => conversation.id === c.id
+                          );
+                          if (!selectedConversation) return;
+ 
+                          setActiveIdState(selectedConversation.id);
+                          setActiveId(selectedConversation.id);
+                          setMessages(selectedConversation.messages as Msg[]);
+                          setMode(selectedConversation.mode as ModeId);
+                          setOpenMenuId(null);
+                        }}
+                        className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left text-xs"
+                      >
+                        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span className="line-clamp-2 leading-snug">{c.title}</span>
+                      </button>
+ 
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === c.id ? null : c.id);
+                        }}
+                        className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100"
+                        aria-label="Conversation options"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+ 
+                      {openMenuId === c.id && (
+                        <div className="absolute right-1 top-9 z-50 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => deleteConversation(c.id)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-destructive transition-colors hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-0.5">
-{conversations
-  .filter((c) => timeBucket(c.updatedAt) === group)
-  .map((c) => (
-    <div
-      key={c.id}
-      className={cn(
-        "group relative flex w-full items-center rounded-md transition-colors",
-        activeId === c.id
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
-      )}
-    >
-      {/* Conversation */}
-      <button
-        onClick={() => {
-          const selectedConversation = conversations.find(
-            (conversation) => conversation.id === c.id
-          );
- 
-          if (!selectedConversation) return;
- 
-          setActiveIdState(selectedConversation.id);
-          setActiveId(selectedConversation.id);
-          setMessages(selectedConversation.messages as Msg[]);
-          setMode(selectedConversation.mode as ModeId);
-          setOpenMenuId(null);
-        }}
-        className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left text-xs"
-      >
-        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
- 
-        <span className="line-clamp-2 leading-snug">
-          {c.title}
-        </span>
-      </button>
- 
-      {/* Three-dot menu */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpenMenuId(
-            openMenuId === c.id ? null : c.id
-          );
-        }}
-        className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100"
-        aria-label="Conversation options"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
- 
-      {/* Menu */}
-      {openMenuId === c.id && (
-        <div className="absolute right-1 top-9 z-50 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
-          <button
-            type="button"
-            onClick={() => deleteConversation(c.id)}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </button>
+            );
+          })}
         </div>
-      )}
-    </div>
-  ))}
-              </div>
-            </div>
-          ))}
-        </div>
+     
       </aside>
+      )}
  
-      {/* Main chat */}
-      <div className="flex min-w-0 min-h-0 flex-1 flex-col">
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">Section 138 NI Act — recent SC interpretation</h1>
-            <p className="text-xs text-muted-foreground">JusticeLine AI · Grounded in Indian case law</p>
-          </div>
+    {/* Main chat */}
+<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+  <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
+
+    <div className="flex min-w-0 items-center gap-3">
+
+      {!chatSidebarOpen && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setChatSidebarOpen(true)}
+          className="h-9 w-9 shrink-0"
+          aria-label="Open chat history"
+        >
+          <PanelLeftOpen className="h-5 w-5" />
+        </Button>
+      )}
+
+      <div className="min-w-0">
+        <h1 className="truncate text-sm font-semibold">
+          Section 138 NI Act — recent SC interpretation
+        </h1>
+
+        <p className="text-xs text-muted-foreground">
+          JusticeLine AI · Grounded in Indian case law
+        </p>
+      </div>
+
+    </div>
           <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live · GPT-4 legal
           </div>
@@ -484,8 +533,7 @@ const assistantMessage: Msg = {
  
         <div
   ref={scrollRef}
-  className="flex-1 overflow-y-auto pt-0"
->
+className="min-h-0 flex-1 overflow-y-auto">
           {empty ? (
             <div className="mx-auto max-w-2xl px-4 pt-4 pb-4 text-center">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-gradient shadow-premium">
@@ -579,7 +627,7 @@ const assistantMessage: Msg = {
     <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold">
       Related Judgments
     </div>
-
+ 
     <div className="space-y-6">
       {m.judgments.map((judgment) => {
         const caseName =
@@ -587,19 +635,19 @@ const assistantMessage: Msg = {
           (judgment.Appellant && judgment.Respondent
             ? `${judgment.Appellant} v. ${judgment.Respondent}`
             : judgment.CaseNo || "Judgment");
-
+ 
         return (
           <div
             key={String(judgment.id)}
             className="space-y-2"
           >
             {/* CASE NAME */}
-  <button
+            <button
   type="button"
   onClick={() => setSelectedJudgment(judgment)}
   className="group inline-flex items-center gap-1.5 text-left text-base font-bold text-foreground transition-colors duration-200 hover:text-[#c89b3c]"
 >
-  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:text-[#c89b3c] group-hover:decoration-[#c89b3c] group-hover:decoration-2"> 
+  <span className="underline decoration-[#c89b3c]/60 decoration-1 underline-offset-4 transition-all duration-200 group-hover:text-[#c89b3c] group-hover:decoration-[#c89b3c] group-hover:decoration-2">
     {caseName}
   </span>
  
@@ -607,7 +655,7 @@ const assistantMessage: Msg = {
     className="h-4 w-4 shrink-0 text-[#c89b3c] opacity-70 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100"
   />
 </button>
-
+ 
             {/* CITATION / PRINCIPLE / RELEVANCE */}
            <ul className="list-disc space-y-2 pl-5 text-sm leading-7 text-foreground">
   {judgment.citation && (
@@ -616,14 +664,14 @@ const assistantMessage: Msg = {
       {judgment.citation}
     </li>
   )}
-
+ 
   {judgment.principle && (
     <li>
       <span className="font-semibold">Principle:</span>{" "}
       {judgment.principle}
     </li>
   )}
-
+ 
   {judgment.relevance && (
     <li>
       <span className="font-semibold">Relevance:</span>{" "}
@@ -662,7 +710,7 @@ const assistantMessage: Msg = {
  
  
  {/* Composer */}
-        <div className="border-t border-border bg-background p-4 sm:p-6">
+        <div className="shrink-0 border-t border-border bg-background p-4 sm:p-6">
           <div className="mx-auto max-w-3xl">
             {/* Current mode indicator */}
             <div className="mb-2 flex items-center justify-between">
@@ -743,7 +791,7 @@ const assistantMessage: Msg = {
     setSelectedJudgment(null);
   }}
 />
-
+ 
 <ResponseModeDialog
   open={modalOpen}
   onOpenChange={setModalOpen}
@@ -898,6 +946,4 @@ function ModeBadge({ tone, label }: { tone: "default" | "recommended" | "premium
     </span>
   );
 }
- 
- 
  

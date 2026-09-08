@@ -87,7 +87,7 @@ function Dashboard() {
   const dynamicChats = conversations.slice(0, 3).map((c) => ({
     id: c.id,
     title: c.title,
-    time: formatRelativeTime(c.updatedAt || c.createdAt || Date.now()),
+    time: formatRelativeTime(c.updatedAt || Date.now()),
   }));
  
   return (
@@ -154,19 +154,29 @@ function Dashboard() {
                 <h3 className="font-serif text-lg font-semibold">Recent Activity</h3>
                 <p className="text-sm text-muted-foreground">Pick up where you left off.</p>
               </div>
-              <Link to="/history" className="text-xs font-medium text-primary hover:underline">
+              {/* Redirect to All in History */}
+              <Link
+                to="/history"
+                search={{ filter: "all" }}
+                className="text-xs font-medium text-primary hover:underline"
+              >
                 View all
               </Link>
             </div>
             <div className="grid gap-5 lg:grid-cols-2">
-              {/* Dynamic Live Chat Feed */}
+              {/* Recent AI Chats Feed */}
               <div className="rounded-2xl border border-border bg-card shadow-sm">
                 <div className="flex items-center justify-between border-b border-border px-5 py-4">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-4 w-4 text-primary" />
                     <h4 className="font-serif text-base font-semibold">Recent AI Chats</h4>
                   </div>
-                  <Link to="/history" className="text-xs font-medium text-primary hover:underline">
+                  {/* Redirect to AI Chat filter in History */}
+                  <Link
+                    to="/history"
+                    search={{ filter: "chat" }}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
                     View all
                   </Link>
                 </div>
@@ -196,14 +206,19 @@ function Dashboard() {
                 </ul>
               </div>
  
-              {/* Drafts Feed */}
+              {/* Recent Drafts Feed */}
               <div className="rounded-2xl border border-border bg-card shadow-sm">
                 <div className="flex items-center justify-between border-b border-border px-5 py-4">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
                     <h4 className="font-serif text-base font-semibold">Recent Drafts</h4>
                   </div>
-                  <Link to="/saved" className="text-xs font-medium text-primary hover:underline">
+                  {/* Redirect to Legal Drafts filter in History */}
+                  <Link
+                    to="/history"
+                    search={{ filter: "draft" }}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
                     View all
                   </Link>
                 </div>

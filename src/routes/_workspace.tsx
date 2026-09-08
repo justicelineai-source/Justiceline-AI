@@ -106,14 +106,14 @@ function WorkspaceLayout() {
         </TabletLayout>
       </div>
 
-      {/* DESKTOP */}
-      <div className="hidden min-h-screen w-full bg-background lg:flex">
-        <AppSidebar />
+     {/* DESKTOP */}
+<div className="hidden h-screen min-h-0 w-full overflow-hidden bg-background lg:flex">
+  <AppSidebar />
 
-        <div className="ml-64 flex min-w-0 flex-1 flex-col">
-          <Outlet />
-        </div>
-      </div>
+  <div className="ml-64 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <Outlet />
+  </div>
+</div>
     </>
   );
 }

@@ -101,6 +101,7 @@ export const Route = createFileRoute("/_workspace/judgments")({
 function JudgmentsPage() {
   const [search, setSearch] = useState("");
   const [court, setCourt] = useState("");
+    const [citation, setCitation] = useState("");
   const [year, setYear] = useState("");
   const [judge, setJudge] = useState("");
   const [actOrSection, setActOrSection] = useState("");
@@ -1211,7 +1212,29 @@ finally {
         placeholder="Acts and sections referenced"
       />
     </label>
- 
+   {/* Citation Search */}
+<label className="grid gap-2">
+  <span className="text-sm font-semibold text-foreground">
+    Citation
+  </span>
+  <div className="relative">
+    <Input
+      value={citation}
+      onChange={(event) => setCitation(event.target.value)}
+      placeholder=" 4 SCC 105 "
+      className="pr-8"
+    />
+    {citation && (
+      <button
+        type="button"
+        onClick={() => setCitation("")}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+      >
+        ✕
+      </button>
+    )}
+  </div>
+</label>
     {/* Year */}
     <label className="grid gap-2">
       <span className="text-sm font-semibold text-foreground">
