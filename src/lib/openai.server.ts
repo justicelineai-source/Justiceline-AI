@@ -103,7 +103,7 @@ Return exactly:
 
   try {
     const response = await client.responses.create({
-      model: "gpt-5.5",
+      model: "gpt-5.6-luna",
       input: metadataPrompt,
       max_output_tokens: 3000,
     });
@@ -480,7 +480,7 @@ Those items are handled separately by the JusticeLine interface.
  console.log("[AI] SELECTED MODE:", mode);
 console.log("[AI] MODE INSTRUCTIONS:", modeInstructions[mode]);
 const response = await client.responses.create({
-  model: "gpt-5.5",
+  model: "gpt-5.6-luna",
  
   prompt: {
     id: PROMPT_ID,
