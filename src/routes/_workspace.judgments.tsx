@@ -1725,46 +1725,40 @@ finally {
               )}
             </div>
           </section>
- 
-          {/* =================================================
-              JUDGES
-          ================================================== */}
-          <section className="mt-8">
-            <h3 className="mb-4 text-base font-bold text-[#351515]">
-              Judges :
-            </h3>
- 
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
-              {selectedJudgment.Judges ? (
-                selectedJudgment.Judges
-                  .split(/[,;\n]+/)
-                  .map((judge, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3"
-                    >
-                      <div className="flex items-start gap-4 py-2">
-  <span className="w-1 shrink-0 text-base font-semibold text-black">
-    {index + 1}.
-  </span>
- 
-  <span className="flex-1 text-[15px] leading-7 text-gray-900">
-    {judge.trim()}
-  </span>
-</div>
- 
-                      <span className="text-base text-black">
-                        {judge.trim()}
-                      </span>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-[#806B5F]">
-                  No judges available.
-                </p>
-              )}
-            </div>
-          </section>
+ {/* =================================================
+    JUDGES
+================================================== */}
+<section className="mt-8">
+  <h3 className="mb-4 text-base font-bold text-[#351515]">
+    Judges :
+  </h3>
+
+  <div className="flex flex-wrap gap-x-8 gap-y-3">
+    {selectedJudgment.Judges ? (
+      selectedJudgment.Judges
+        .split(/[,;\n]+/)
+        .filter(Boolean)
+        .map((judge, index) => (
+          <div
+            key={index}
+            className="flex items-start gap-4 py-2"
+          >
+            <span className="shrink-0 text-base font-semibold text-black">
+              {index + 1}.
+            </span>
+
+            <span className="text-[15px] leading-7 text-gray-900">
+              {judge.trim()}
+            </span>
+          </div>
+        ))
+    ) : (
+      <p className="text-[#806B5F]">
+        No judges available.
+      </p>
+    )}
+  </div>
+</section>
  
           {/* =================================================
               ADVOCATES

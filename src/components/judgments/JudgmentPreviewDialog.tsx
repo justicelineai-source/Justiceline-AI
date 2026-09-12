@@ -51,6 +51,17 @@ function formatDate(value: string | null | undefined) {
   }).format(date);
 }
 
+function cleanJudgeName(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+
+  const duplicateMatch = normalized.match(/^(.+?)\s+\1$/i);
+
+  return duplicateMatch
+    ? duplicateMatch[1].trim()
+    : normalized;
+}
+  
+
 export default function JudgmentPreviewDialog({
   judgment,
   onClose,
@@ -251,7 +262,7 @@ export default function JudgmentPreviewDialog({
                           </span>
 
                           <span className="text-[15px] leading-7 text-gray-900">
-                            {judge.trim()}
+                            {cleanJudgeName(judge)}
                           </span>
                         </div>
                       ))

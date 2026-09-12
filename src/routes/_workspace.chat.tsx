@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
  
 import {
   loadConversations,
@@ -373,38 +374,47 @@ const assistantMessage: Msg = {
   const currentMode = MODES.find((m) => m.id === mode)!;
  
   return (
-    <div className="flex h-screen min-h-0 flex-1 overflow-hidden">
-     {/* Chat sidebar */}
-{chatSidebarOpen && (
-  <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-secondary/30 lg:flex">
-  <div className="p-4">
-
-    <div className="mb-3 flex items-center justify-end">
-      <Button
+    <div className="relative flex h-screen min-h-0 flex-1 overflow-hidden">
+      {/* Floating Border Toggle Button */}
+      <button
         type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => setChatSidebarOpen(false)}
-        className="h-8 w-8"
-        aria-label="Close chat history"
+        onClick={() => setChatSidebarOpen(!chatSidebarOpen)}
+        style={{ top: "105px" }} // Perfectly aligned with the "LAST WEEK" line
+        className={cn(
+          "absolute z-30 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-all hover:bg-secondary hover:text-foreground hover:scale-110",
+          chatSidebarOpen ? "left-[276px]" : "left-[-12px] hover:left-0"
+        )}
+        title={chatSidebarOpen ? "Collapse history" : "Expand history"}
+        aria-label={chatSidebarOpen ? "Collapse history" : "Expand history"}
       >
-        <PanelLeftClose className="h-5 w-5" />
-      </Button>
-    </div>
-
-    <Button
-      onClick={() => {
-        setActiveIdState(null);
-        setActiveId(null);
-        setMessages([]);
-        setOpenMenuId(null);
-      }}
-      className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
-    >
-      <Plus className="h-4 w-4" />
-      New chat
-    </Button>
-          {/* REPLACE START */}
+        {chatSidebarOpen ? (
+          <ChevronLeft className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+      </button>
+ 
+      {/* Chat sidebar */}
+      <aside
+        className={cn(
+          "hidden shrink-0 flex-col border-r border-border bg-secondary/30 transition-all duration-300 ease-in-out lg:flex",
+          chatSidebarOpen ? "w-72" : "w-0 overflow-hidden border-r-0"
+        )}
+      >
+        <div className="w-72 p-4">
+          <Button
+            onClick={() => {
+              setActiveIdState(null);
+              setActiveId(null);
+              setMessages([]);
+              setOpenMenuId(null);
+            }}
+            className="w-full justify-start gap-2 bg-brand-gradient text-white hover:opacity-95"
+          >
+            <Plus className="h-4 w-4" />
+            New chat
+          </Button>
+ 
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -415,7 +425,8 @@ const assistantMessage: Msg = {
             />
           </div>
         </div>
-        <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
+ 
+        <div className="w-72 flex-1 space-y-4 overflow-y-auto px-3 pb-4">
           {["Today", "Yesterday", "Last week"].map((group) => {
             const filtered = conversations.filter(
               (c) =>
@@ -491,17 +502,15 @@ const assistantMessage: Msg = {
             );
           })}
         </div>
-     
       </aside>
-      )}
  
     {/* Main chat */}
 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-
+ 
   <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
-
+ 
     <div className="flex min-w-0 items-center gap-3">
-
+ 
       {!chatSidebarOpen && (
         <Button
           type="button"
@@ -514,17 +523,17 @@ const assistantMessage: Msg = {
           <PanelLeftOpen className="h-5 w-5" />
         </Button>
       )}
-
+ 
       <div className="min-w-0">
         <h1 className="truncate text-sm font-semibold">
           Section 138 NI Act — recent SC interpretation
         </h1>
-
+ 
         <p className="text-xs text-muted-foreground">
           JusticeLine AI · Grounded in Indian case law
         </p>
       </div>
-
+ 
     </div>
           <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-[11px] font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Live · GPT-4 legal
@@ -946,4 +955,3 @@ function ModeBadge({ tone, label }: { tone: "default" | "recommended" | "premium
     </span>
   );
 }
- 
