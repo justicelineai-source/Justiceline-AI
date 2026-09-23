@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-
+ 
 export const Route = createFileRoute("/_workspace/draft/sale-deed")({
   head: () => ({
     meta: [
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_workspace/draft/sale-deed")({
   }),
   component: SaleDeedForm,
 });
-
+ 
 const schema = z.object({
   sellerName: z.string().min(2, "Required"),
   sellerPhone: z.string().min(7),
@@ -59,7 +59,7 @@ const schema = z.object({
   declaration: z.literal(true, { message: "You must confirm the declaration" }),
 });
 type FormValues = z.infer<typeof schema>;
-
+ 
 const steps = [
   { id: 1, title: "Seller", icon: User },
   { id: 2, title: "Buyer", icon: UserCheck },
@@ -67,7 +67,7 @@ const steps = [
   { id: 4, title: "Sale", icon: Wallet },
   { id: 5, title: "Registration", icon: FileCheck },
 ];
-
+ 
 function SaleDeedForm() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -83,8 +83,8 @@ function SaleDeedForm() {
     mode: "onBlur",
     defaultValues: defaults,
   });
-
-
+ 
+ 
   const fieldsByStep: Record<number, (keyof FormValues)[]> = {
     1: ["sellerName", "sellerPhone", "sellerEmail", "sellerAddress"],
     2: ["buyerName", "buyerPhone", "buyerEmail", "buyerAddress"],
@@ -92,12 +92,12 @@ function SaleDeedForm() {
     4: ["saleAmount", "advanceAmount", "paymentMethod", "dateOfSale"],
     5: ["subRegistrar", "registrationDate", "declaration"],
   };
-
+ 
   const next = async () => {
     const ok = await trigger(fieldsByStep[step]);
     if (ok) setStep((s) => Math.min(5, s + 1));
   };
-
+ 
   const onSubmit = (values: FormValues) => {
     import("@/lib/drafts-store").then(({ setCurrentDraft, saveFormData }) => {
       saveFormData("sale-deed", values as unknown as Record<string, string>);
@@ -111,7 +111,7 @@ function SaleDeedForm() {
       navigate({ to: "/draft/preview" });
     });
   };
-
+ 
   return (
     <>
       <AppHeader title="Sale Deed" subtitle="Property Documents · Guided draft" />
@@ -147,7 +147,7 @@ function SaleDeedForm() {
               );
             })}
           </ol>
-
+ 
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="overflow-hidden rounded-2xl border border-border bg-card shadow-elegant"
@@ -156,7 +156,7 @@ function SaleDeedForm() {
               <h2 className="font-serif text-lg font-semibold">Section {step}: {steps[step - 1].title} Information</h2>
               <p className="text-xs text-muted-foreground">All fields are required. Data is encrypted end-to-end.</p>
             </div>
-
+ 
             <div className="space-y-5 p-6 sm:p-8">
               {step === 1 && (
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -227,7 +227,7 @@ function SaleDeedForm() {
                 </div>
               )}
             </div>
-
+ 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/30 px-6 py-4">
               <Link to="/draft">
                 <Button type="button" variant="ghost">Cancel</Button>
@@ -255,7 +255,7 @@ function SaleDeedForm() {
     </>
   );
 }
-
+ 
 function Field({
   label, name, register, errors, type = "text", placeholder, className,
 }: {
@@ -275,7 +275,7 @@ function Field({
     </div>
   );
 }
-
+ 
 function SelectField({
   label, name, register, errors, options,
 }: {
@@ -300,3 +300,5 @@ function SelectField({
     </div>
   );
 }
+ 
+ 

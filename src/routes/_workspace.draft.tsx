@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
+import { DynamicStepDraftEditor } from "@/components/legal/DynamicStepDraftEditor";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
@@ -9,18 +10,13 @@ import {
   Briefcase,
   Search,
   ArrowRight,
-  Sparkles,
-  Paperclip,
-  ArrowUp,
   ChevronDown,
   FileText,
   Clock,
-  ExternalLink,
-  Scale,
   RotateCcw,
-  Copy,
-  Check,
   Plus,
+  ArrowUp,
+  Pencil,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import {
@@ -31,10 +27,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { addOrUpdateDraft, loadDrafts, type DraftRecord } from "@/lib/draft-store";
-import { cn } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
+import { LegalDocument } from "@/components/legal/LegalDocument";
  
-//  Update to this:
 export const Route = createFileRoute("/_workspace/draft")({
   head: () => ({
     meta: [
@@ -44,7 +38,7 @@ export const Route = createFileRoute("/_workspace/draft")({
       { property: "og:description", content: "Sale Deeds, Affidavits, Notices, Wills and more." },
     ],
   }),
-  component: DraftIndex, // Directly loads the Draft UI
+  component: DraftLayout,
 });
  
 type TemplateItem = { name: string; to: string; featured?: boolean };
@@ -171,7 +165,12 @@ const SUGGESTED_PROMPTS = [
  
 function DraftLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (pathname !== "/draft") return <Outlet />;
+  const isBaseDraftRoute = pathname === "/draft" || pathname === "/draft/";
+ 
+  if (!isBaseDraftRoute) {
+    return <Outlet />;
+  }
+ 
   return <DraftIndex />;
 }
  
@@ -201,14 +200,29 @@ function DraftIndex() {
   const [historySearch, setHistorySearch] = useState("");
   const [openCategory, setOpenCategory] = useState<Category | null>(null);
  
-  // --- ADD THESE NEW STATES FOR IN-PAGE CHAT ---
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<
     Array<{ role: "user" | "assistant"; content: string }>
   >([]);
-  const [copied, setCopied] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+ 
+  // --- STEP-BY-STEP DRAFT EDITOR MODAL STATE ---
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingDraftContent, setEditingDraftContent] = useState("");
+  const [editingDraftTitle, setEditingDraftTitle] = useState("");
+  const [editingMessageIdx, setEditingMessageIdx] = useState<number | null>(null);
+ 
+  const handleOpenEditor = (content: string, msgIdx: number) => {
+    setEditingDraftContent(content);
+    setEditingDraftTitle(
+      activeDraftId
+        ? draftHistory.find((d) => d.id === activeDraftId)?.title || "Legal Draft"
+        : "Legal Draft Document"
+    );
+    setEditingMessageIdx(msgIdx);
+    setIsEditorOpen(true);
+  };
   // ---------------------------------------------
  
   const formatDraftTimestamp = (timestamp: number) =>
@@ -221,7 +235,6 @@ function DraftIndex() {
       hour12: false,
     }).format(new Date(timestamp));
  
-  // Flatten templates for the template selector dropdown
   const allTemplates = useMemo(() => {
     return categories.flatMap((c) =>
       c.items.map((item) => ({ ...item, category: c.title }))
@@ -275,7 +288,7 @@ function DraftIndex() {
     }
   };
  
-  const handleGenerate = async (e: React.FormEvent, customText?: string) => {
+  const handleGenerate = async (e: React.FormEvent | null, customText?: string) => {
     if (e) e.preventDefault();
     const query = (customText ?? prompt).trim();
     if (!query || isGenerating) return;
@@ -375,8 +388,7 @@ function DraftIndex() {
       <AppHeader title="Create Legal Draft" subtitle="Choose a template to begin drafting" />
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-5xl space-y-12">
-          {/* Section 1: AI Prompt Creation */}
-         {/* Section 1: AI Prompt & In-Page Expansion */}
+          {/* Section 1: AI Prompt & In-Page Expansion */}
           <section className="pt-2">
             <div className="text-center">
               <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -391,7 +403,8 @@ function DraftIndex() {
  
             {/* EXPANDED IN-PAGE CHAT THREAD */}
             {hasStartedChat && (
-              <div className="mx-auto mt-8 max-w-3xl space-y-6">
+              <div className="mx-auto mt-8 max-w-4xl space-y-6">
+                {/* Session Header / Reset Button */}
                 <div className="flex items-center justify-between border-b border-border pb-3">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Active Draft Session
@@ -411,66 +424,46 @@ function DraftIndex() {
                   </button>
                 </div>
  
-                <div className="space-y-4">
-                  {chatMessages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={cn(
-                        "flex gap-3",
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      {msg.role === "assistant" && (
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-gold shadow-sm">
-                          <Scale className="h-4 w-4" />
-                        </div>
-                      )}
- 
-                      <div
-                        className={cn(
-                          "rounded-2xl p-4 text-sm leading-relaxed",
-                          msg.role === "user"
-                            ? "max-w-[80%] bg-primary text-primary-foreground shadow-sm"
-                            : "w-full border border-border bg-card shadow-sm"
-                        )}
-                      >
-                        {msg.role === "user" ? (
-                          msg.content
-                        ) : (
-                          <div>
-                            <div className="mb-2 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(msg.content);
-                                  setCopied(true);
-                                  setTimeout(() => setCopied(false), 2000);
-                                }}
-                                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
-                              >
-                                {copied ? (
-                                  <>
-                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                    Copied
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="h-3.5 w-3.5" />
-                                    Copy Draft
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                            <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
-  <ReactMarkdown>
-    {String(msg.content)}
-  </ReactMarkdown>
-</div>
+                {/* Messages */}
+                <div className="space-y-6">
+                  {chatMessages.map((msg, idx) => {
+                    if (msg.role === "assistant") {
+                      return (
+                        <div key={idx} className="w-full">
+                          {/* EDIT BUTTON TO OPEN STEPPER */}
+                          <div className="mb-2 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditor(msg.content, idx)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-secondary"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-primary" />
+                              <span>Edit Draft Steps</span>
+                            </button>
                           </div>
-                        )}
+ 
+                          {/* RENDER FORMAL LEGAL DOCUMENT SHEET */}
+                          <LegalDocument
+                            content={msg.content}
+                            title={
+                              activeDraftId
+                                ? draftHistory.find((d) => d.id === activeDraftId)?.title
+                                : "LEGAL DRAFT DOCUMENT"
+                            }
+                          />
+                        </div>
+                      );
+                    }
+ 
+                    // User Prompt Header
+                    return (
+                      <div key={idx} className="flex justify-end">
+                        <div className="max-w-[85%] rounded-2xl border border-border bg-secondary/60 px-4 py-2 text-xs font-medium text-foreground">
+                          <span className="text-muted-foreground mr-1">Draft Request:</span> {msg.content}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
  
                   {isGenerating && (
                     <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground shadow-xs">
@@ -529,19 +522,19 @@ function DraftIndex() {
                     )}
  
                     <button
-  type="button"
-  onClick={() => {
-    setHasStartedChat(false);
-    setChatMessages([]);
-    setPrompt("");
-    setActiveDraftId(null);
-    setSelectedTemplate("auto");
-  }}
-  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
->
-  <Plus className="h-3.5 w-3.5" />
-  <span>New Draft</span>
-</button>
+                      type="button"
+                      onClick={() => {
+                        setHasStartedChat(false);
+                        setChatMessages([]);
+                        setPrompt("");
+                        setActiveDraftId(null);
+                        setSelectedTemplate("auto");
+                      }}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>New Draft</span>
+                    </button>
                   </div>
  
                   <div className="flex items-center gap-2">
@@ -556,7 +549,7 @@ function DraftIndex() {
                 </div>
               </div>
  
-              {/* Suggestions (Only displayed before starting chat) */}
+              {/* Suggestions */}
               {!hasStartedChat && (
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   {SUGGESTED_PROMPTS.map((item) => (
@@ -566,7 +559,7 @@ function DraftIndex() {
                       onClick={() => {
                         setPrompt(item.label);
                         setSelectedTemplate(item.to);
-                        handleGenerate(null as any, item.label);
+                        handleGenerate(null, item.label);
                       }}
                       className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs transition hover:border-primary/30 hover:bg-secondary/60 hover:text-foreground"
                     >
@@ -604,7 +597,6 @@ function DraftIndex() {
             {filteredHistory.length > 0 ? (
               <div className="space-y-3">
                 <div className="divide-y divide-border rounded-xl border border-border bg-card shadow-xs">
-                  {/* Strictly limits to top 5 drafts */}
                   {filteredHistory.slice(0, 5).map((draft) => (
                     <div
                       key={draft.id}
@@ -642,19 +634,17 @@ function DraftIndex() {
                   ))}
                 </div>
  
-                {/* View All Button — triggers only when drafts exceed 5 */}
-{filteredHistory.length > 0 && (
-  <div className="flex justify-center pt-2">
-    <Link
-      to="/history"
-      search={{ filter: "draft" }}
-      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      <span>View All in History</span>
-      <ArrowRight className="h-3.5 w-3.5" />
-    </Link>
-  </div>
- 
+                {filteredHistory.length > 0 && (
+                  <div className="flex justify-center pt-2">
+                    <Link
+                      to="/history"
+                      search={{ filter: "draft" }}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <span>View All in History</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 )}
               </div>
             ) : (
@@ -668,54 +658,7 @@ function DraftIndex() {
             )}
           </section>
  
-          {/* Section 3: Document / Template Categories */}
-          <section id="template-categories" className="space-y-4">
-            <div>
-              <h2 className="font-serif text-xl font-semibold text-foreground">
-                Document Templates
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Select a standard legal structure to launch direct field forms.
-              </p>
-            </div>
- 
-            <div className="grid gap-6 md:grid-cols-2">
-              {categories.map((c) => {
-                const visible = c.items.slice(0, 3);
-                const totalCount = c.items.length;
-                return (
-                  <div key={c.title} className="rounded-2xl border border-border bg-card p-6 shadow-elegant">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-gradient text-gold shadow-elegant">
-                        <c.icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
-                        <p className="text-xs text-muted-foreground">{totalCount} templates available</p>
-                      </div>
-                    </div>
-                    <ul className="mt-5 space-y-2">
-                      {visible.map((i) => (
-                        <li key={i.name}>
-                          <TemplateRow i={i} />
-                        </li>
-                      ))}
-                    </ul>
-                    {totalCount > 3 && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenCategory(c)}
-                        className="group mt-4 flex w-full items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-secondary"
-                      >
-                        <span>View All ({totalCount} Templates)</span>
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+         
         </div>
       </main>
  
@@ -748,6 +691,42 @@ function DraftIndex() {
           )}
         </DialogContent>
       </Dialog>
+ 
+      {/* STEP-BY-STEP DRAFT EDITOR DIALOG */}
+      <DynamicStepDraftEditor
+  open={isEditorOpen}
+  onOpenChange={setIsEditorOpen}
+  documentTitle={editingDraftTitle || "Legal Draft"}
+  markdownContent={editingDraftContent}
+  onSave={(newTitle, newMarkdown) => {
+    if (editingMessageIdx !== null) {
+      setEditingDraftContent(newMarkdown);
+      setEditingDraftTitle(newTitle);
+ 
+      const updatedMessages = [...chatMessages];
+      updatedMessages[editingMessageIdx] = {
+        ...updatedMessages[editingMessageIdx],
+        content: newMarkdown,
+      };
+      setChatMessages(updatedMessages);
+ 
+      if (activeDraftId) {
+        const rawRecords = loadDrafts();
+        const existingRecord = rawRecords.find((d) => d.id === activeDraftId);
+        if (existingRecord) {
+          const updatedRecord: DraftRecord = {
+            ...existingRecord,
+            title: newTitle || existingRecord.title,
+            content: newMarkdown,
+            timestamp: Date.now(),
+          };
+          const nextSaved = addOrUpdateDraft(updatedRecord);
+          setDraftHistory(mapDraftRecordsToHistory(nextSaved));
+        }
+      }
+    }
+  }}
+/>
     </>
   );
 }
